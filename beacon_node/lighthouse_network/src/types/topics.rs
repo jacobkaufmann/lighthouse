@@ -23,6 +23,7 @@ pub const SYNC_COMMITTEE_PREFIX_TOPIC: &str = "sync_committee_";
 pub const BLS_TO_EXECUTION_CHANGE_TOPIC: &str = "bls_to_execution_change";
 pub const LIGHT_CLIENT_FINALITY_UPDATE: &str = "light_client_finality_update";
 pub const LIGHT_CLIENT_OPTIMISTIC_UPDATE: &str = "light_client_optimistic_update";
+pub const INCLUSION_LIST_TOPIC: &str = "inclusion_list";
 
 pub const BASE_CORE_TOPICS: [GossipKind; 5] = [
     GossipKind::BeaconBlock,
@@ -43,6 +44,8 @@ pub const LIGHT_CLIENT_GOSSIP_TOPICS: [GossipKind; 2] = [
 
 pub const DENEB_CORE_TOPICS: [GossipKind; 0] = [];
 
+pub const ELECTRA_CORE_TOPICS: [GossipKind; 1] = [GossipKind::InclusionList];
+
 /// Returns the core topics associated with each fork that are new to the previous fork
 pub fn fork_core_topics<E: EthSpec>(fork_name: &ForkName, spec: &ChainSpec) -> Vec<GossipKind> {
     match fork_name {
@@ -60,7 +63,7 @@ pub fn fork_core_topics<E: EthSpec>(fork_name: &ForkName, spec: &ChainSpec) -> V
             deneb_topics.append(&mut deneb_blob_topics);
             deneb_topics
         }
-        ForkName::Electra => vec![],
+        ForkName::Electra => ELECTRA_CORE_TOPICS.to_vec(),
     }
 }
 
@@ -135,6 +138,8 @@ pub enum GossipKind {
     LightClientFinalityUpdate,
     /// Topic for publishing optimistic updates for light clients.
     LightClientOptimisticUpdate,
+    /// Topic for publishing inclusion lists.
+    InclusionList,
 }
 
 impl std::fmt::Display for GossipKind {
@@ -217,6 +222,7 @@ impl GossipTopic {
                 BLS_TO_EXECUTION_CHANGE_TOPIC => GossipKind::BlsToExecutionChange,
                 LIGHT_CLIENT_FINALITY_UPDATE => GossipKind::LightClientFinalityUpdate,
                 LIGHT_CLIENT_OPTIMISTIC_UPDATE => GossipKind::LightClientOptimisticUpdate,
+                INCLUSION_LIST_TOPIC => GossipKind::InclusionList,
                 topic => match subnet_topic_index(topic) {
                     Some(kind) => kind,
                     None => return Err(format!("Unknown topic: {}", topic)),
@@ -282,6 +288,7 @@ impl std::fmt::Display for GossipTopic {
             GossipKind::BlsToExecutionChange => BLS_TO_EXECUTION_CHANGE_TOPIC.into(),
             GossipKind::LightClientFinalityUpdate => LIGHT_CLIENT_FINALITY_UPDATE.into(),
             GossipKind::LightClientOptimisticUpdate => LIGHT_CLIENT_OPTIMISTIC_UPDATE.into(),
+            GossipKind::InclusionList => INCLUSION_LIST_TOPIC.into(),
         };
         write!(
             f,

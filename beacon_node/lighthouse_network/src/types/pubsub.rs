@@ -9,7 +9,7 @@ use std::sync::Arc;
 use types::{
     Attestation, AttestationBase, AttestationElectra, AttesterSlashing, AttesterSlashingBase,
     AttesterSlashingElectra, BlobSidecar, DataColumnSidecar, DataColumnSubnetId, EthSpec,
-    ForkContext, ForkName, LightClientFinalityUpdate, LightClientOptimisticUpdate,
+    ForkContext, ForkName, InclusionList, LightClientFinalityUpdate, LightClientOptimisticUpdate,
     ProposerSlashing, SignedAggregateAndProof, SignedAggregateAndProofBase,
     SignedAggregateAndProofElectra, SignedBeaconBlock, SignedBeaconBlockAltair,
     SignedBeaconBlockBase, SignedBeaconBlockBellatrix, SignedBeaconBlockCapella,
@@ -45,6 +45,8 @@ pub enum PubsubMessage<E: EthSpec> {
     LightClientFinalityUpdate(Box<LightClientFinalityUpdate<E>>),
     /// Gossipsub message providing notification of a light client optimistic update.
     LightClientOptimisticUpdate(Box<LightClientOptimisticUpdate<E>>),
+    /// Gossipsub message providing notification of an inclusion list.
+    InclusionList(Box<InclusionList<E>>),
 }
 
 // Implements the `DataTransform` trait of gossipsub to employ snappy compression
@@ -138,6 +140,7 @@ impl<E: EthSpec> PubsubMessage<E> {
             PubsubMessage::LightClientOptimisticUpdate(_) => {
                 GossipKind::LightClientOptimisticUpdate
             }
+            PubsubMessage::InclusionList(_) => GossipKind::InclusionList,
         }
     }
 
@@ -390,6 +393,11 @@ impl<E: EthSpec> PubsubMessage<E> {
                             light_client_optimistic_update,
                         )))
                     }
+                    GossipKind::InclusionList => {
+                        let il =
+                            InclusionList::from_ssz_bytes(data).map_err(|e| format!("{:?}", e))?;
+                        Ok(PubsubMessage::InclusionList(Box::new(il)))
+                    }
                 }
             }
         }
@@ -416,6 +424,7 @@ impl<E: EthSpec> PubsubMessage<E> {
             PubsubMessage::BlsToExecutionChange(data) => data.as_ssz_bytes(),
             PubsubMessage::LightClientFinalityUpdate(data) => data.as_ssz_bytes(),
             PubsubMessage::LightClientOptimisticUpdate(data) => data.as_ssz_bytes(),
+            PubsubMessage::InclusionList(data) => data.as_ssz_bytes(),
         }
     }
 }
@@ -476,6 +485,9 @@ impl<E: EthSpec> std::fmt::Display for PubsubMessage<E> {
             }
             PubsubMessage::LightClientOptimisticUpdate(_data) => {
                 write!(f, "Light CLient Optimistic Update")
+            }
+            PubsubMessage::InclusionList(_data) => {
+                write!(f, "Inclusion List")
             }
         }
     }
