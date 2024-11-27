@@ -27,6 +27,7 @@ pub enum Domain {
     ContributionAndProof,
     SyncCommitteeSelectionProof,
     ApplicationMask(ApplicationDomain),
+    InclusionListCommittee,
 }
 
 /// Lighthouse's internal configuration struct.
@@ -191,6 +192,11 @@ pub struct ChainSpec {
     pub max_pending_partials_per_withdrawals_sweep: u64,
     pub min_per_epoch_churn_limit_electra: u64,
     pub max_per_epoch_activation_exit_churn_limit: u64,
+
+    /*
+     * FOCIL params
+     */
+    pub domain_inclusion_list_committee: u32,
 
     /*
      * DAS params
@@ -477,6 +483,7 @@ impl ChainSpec {
             Domain::SyncCommitteeSelectionProof => self.domain_sync_committee_selection_proof,
             Domain::ApplicationMask(application_domain) => application_domain.get_domain_constant(),
             Domain::BlsToExecutionChange => self.domain_bls_to_execution_change,
+            Domain::InclusionListCommittee => self.domain_inclusion_list_committee,
         }
     }
 
@@ -805,6 +812,11 @@ impl ChainSpec {
             .expect("calculation does not overflow"),
 
             /*
+             * FOCIL params
+             */
+            domain_inclusion_list_committee: 13,
+
+            /*
              * DAS params
              */
             eip7594_fork_epoch: None,
@@ -1122,6 +1134,11 @@ impl ChainSpec {
                 u64::checked_pow(2, 8)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
+
+            /*
+             * FOCIL params
+             */
+            domain_inclusion_list_committee: 13,
 
             /*
              * DAS params
@@ -1935,6 +1952,12 @@ mod tests {
         test_domain(
             Domain::BlsToExecutionChange,
             spec.domain_bls_to_execution_change,
+            &spec,
+        );
+
+        test_domain(
+            Domain::InclusionListCommittee,
+            spec.domain_inclusion_list_committee,
             &spec,
         );
     }

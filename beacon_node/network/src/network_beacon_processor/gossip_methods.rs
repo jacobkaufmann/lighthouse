@@ -7,6 +7,9 @@ use crate::{
 use beacon_chain::blob_verification::{GossipBlobError, GossipVerifiedBlob};
 use beacon_chain::block_verification_types::AsBlock;
 use beacon_chain::data_column_verification::{GossipDataColumnError, GossipVerifiedDataColumn};
+use beacon_chain::inclusion_list_verification::{
+    GossipInclusionListError, GossipVerifiedInclusionList,
+};
 use beacon_chain::store::Error;
 use beacon_chain::{
     attestation_verification::{self, Error as AttnError, VerifiedAttestation},
@@ -36,8 +39,8 @@ use types::{
     DataColumnSidecar, DataColumnSubnetId, EthSpec, Hash256, IndexedAttestation,
     LightClientFinalityUpdate, LightClientOptimisticUpdate, ProposerSlashing,
     SignedAggregateAndProof, SignedBeaconBlock, SignedBlsToExecutionChange,
-    SignedContributionAndProof, SignedVoluntaryExit, Slot, SubnetId, SyncCommitteeMessage,
-    SyncSubnetId,
+    SignedContributionAndProof, SignedInclusionList, SignedVoluntaryExit, Slot, SubnetId,
+    SyncCommitteeMessage, SyncSubnetId,
 };
 
 use beacon_processor::{
@@ -2160,6 +2163,35 @@ impl<T: BeaconChainTypes> NetworkBeaconProcessor<T> {
                 self.propagate_validation_result(message_id, peer_id, MessageAcceptance::Ignore);
             }
         };
+    }
+
+    pub fn process_gossip_inclusion_list(
+        self: &Arc<Self>,
+        message_id: MessageId,
+        peer_id: PeerId,
+        il: SignedInclusionList<T::EthSpec>,
+        seen_timestamp: Duration,
+    ) {
+        match GossipVerifiedInclusionList::verify(&il, &self.chain) {
+            Ok(gossip_verified_il) => {
+                debug!(self.log, "Successfully verified gossip inclusion list");
+            }
+            Err(err) => match err {
+                GossipInclusionListError::FutureSlot { .. }
+                | GossipInclusionListError::PastSlot { .. }
+                | GossipInclusionListError::ValidatorNotInCommittee
+                | GossipInclusionListError::TooManyTransactions
+                | GossipInclusionListError::InvalidSignature => {
+                    debug!(self.log, "Could not verify inclusion list for gossip. Rejecting the inclusion list"; "error" => ?err);
+                }
+                GossipInclusionListError::InvalidCommitteeRoot => {
+                    debug!(self.log, "Could not verify inclusion list for gossip. Ignoring the inclusion list"; "error" => ?err);
+                }
+                GossipInclusionListError::BeaconChainError(_) => {
+                    crit!(self.log, "Internal error when verifying inclusion list"; "error" => ?err);
+                }
+            },
+        }
     }
 
     /// Handle an error whilst verifying an `Attestation` or `SignedAggregateAndProof` from the
