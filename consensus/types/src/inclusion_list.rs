@@ -1,5 +1,5 @@
 use crate::test_utils::TestRandom;
-use crate::{EthSpec, Hash256, Signature, Slot, Transaction};
+use crate::{EthSpec, Hash256, Signature, SignedRoot, Slot, Transaction};
 
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
@@ -32,6 +32,8 @@ pub struct InclusionList<E: EthSpec> {
     pub transactions:
         VariableList<Transaction<E::MaxBytesPerTransaction>, E::MaxTransactionsPerInclusionList>,
 }
+
+impl<E: EthSpec> SignedRoot for InclusionList<E> {}
 
 #[derive(
     Debug, Clone, Serialize, Deserialize, Encode, Decode, TreeHash, Derivative, arbitrary::Arbitrary,
