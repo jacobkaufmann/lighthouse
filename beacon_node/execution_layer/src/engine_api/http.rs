@@ -61,6 +61,9 @@ pub const ENGINE_GET_CLIENT_VERSION_TIMEOUT: Duration = Duration::from_secs(1);
 pub const ENGINE_GET_BLOBS_V1: &str = "engine_getBlobsV1";
 pub const ENGINE_GET_BLOBS_TIMEOUT: Duration = Duration::from_secs(1);
 
+pub const ENGINE_GET_INCLUSION_LIST_V1: &str = "engine_getInclusionListV1";
+pub const ENGINE_GET_INCLUSION_LIST_TIMEOUT: Duration = Duration::from_secs(1);
+
 /// This error is returned during a `chainId` call by Geth.
 pub const EIP155_ERROR_STR: &str = "chain not synced beyond EIP-155 replay-protection fork block";
 /// This code is returned by all clients when a method is not supported
@@ -83,6 +86,7 @@ pub static LIGHTHOUSE_CAPABILITIES: &[&str] = &[
     ENGINE_GET_PAYLOAD_BODIES_BY_RANGE_V1,
     ENGINE_GET_CLIENT_VERSION_V1,
     ENGINE_GET_BLOBS_V1,
+    ENGINE_GET_INCLUSION_LIST_V1,
 ];
 
 /// We opt to initialize the JsonClientVersionV1 rather than the ClientVersionV1
@@ -720,6 +724,23 @@ impl HttpJsonRpc {
         .await
     }
 
+    pub async fn get_inclusion_list<E: EthSpec>(
+        &self,
+        parent_hash: Hash256,
+    ) -> Result<
+        VariableList<Transaction<E::MaxBytesPerTransaction>, E::MaxTransactionsPerInclusionList>,
+        Error,
+    > {
+        let params = json!([parent_hash]);
+
+        self.rpc_request(
+            ENGINE_GET_INCLUSION_LIST_V1,
+            params,
+            ENGINE_GET_INCLUSION_LIST_TIMEOUT,
+        )
+        .await
+    }
+
     pub async fn get_block_by_number<'a>(
         &self,
         query: BlockByNumberQuery<'a>,
@@ -1086,6 +1107,7 @@ impl HttpJsonRpc {
             get_payload_v4: capabilities.contains(ENGINE_GET_PAYLOAD_V4),
             get_client_version_v1: capabilities.contains(ENGINE_GET_CLIENT_VERSION_V1),
             get_blobs_v1: capabilities.contains(ENGINE_GET_BLOBS_V1),
+            get_inclusion_list_v1: capabilities.contains(ENGINE_GET_INCLUSION_LIST_V1),
         })
     }
 
