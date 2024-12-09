@@ -1,10 +1,10 @@
 use crate::engines::ForkchoiceState;
 use crate::http::{
     ENGINE_FORKCHOICE_UPDATED_V1, ENGINE_FORKCHOICE_UPDATED_V2, ENGINE_FORKCHOICE_UPDATED_V3,
-    ENGINE_GET_BLOBS_V1, ENGINE_GET_CLIENT_VERSION_V1, ENGINE_GET_PAYLOAD_BODIES_BY_HASH_V1,
-    ENGINE_GET_PAYLOAD_BODIES_BY_RANGE_V1, ENGINE_GET_PAYLOAD_V1, ENGINE_GET_PAYLOAD_V2,
-    ENGINE_GET_PAYLOAD_V3, ENGINE_GET_PAYLOAD_V4, ENGINE_NEW_PAYLOAD_V1, ENGINE_NEW_PAYLOAD_V2,
-    ENGINE_NEW_PAYLOAD_V3, ENGINE_NEW_PAYLOAD_V4,
+    ENGINE_GET_BLOBS_V1, ENGINE_GET_CLIENT_VERSION_V1, ENGINE_GET_INCLUSION_LIST_V1,
+    ENGINE_GET_PAYLOAD_BODIES_BY_HASH_V1, ENGINE_GET_PAYLOAD_BODIES_BY_RANGE_V1,
+    ENGINE_GET_PAYLOAD_V1, ENGINE_GET_PAYLOAD_V2, ENGINE_GET_PAYLOAD_V3, ENGINE_GET_PAYLOAD_V4,
+    ENGINE_NEW_PAYLOAD_V1, ENGINE_NEW_PAYLOAD_V2, ENGINE_NEW_PAYLOAD_V3, ENGINE_NEW_PAYLOAD_V4,
 };
 use eth2::types::{
     BlobsBundle, SsePayloadAttributes, SsePayloadAttributesV1, SsePayloadAttributesV2,
@@ -19,8 +19,8 @@ use strum::IntoStaticStr;
 use superstruct::superstruct;
 pub use types::{
     Address, BeaconBlockRef, ConsolidationRequest, EthSpec, ExecutionBlockHash, ExecutionPayload,
-    ExecutionPayloadHeader, ExecutionPayloadRef, FixedVector, ForkName, Hash256, Transactions,
-    Uint256, VariableList, Withdrawal, Withdrawals,
+    ExecutionPayloadHeader, ExecutionPayloadRef, FixedVector, ForkName, Hash256, Transaction,
+    Transactions, Uint256, VariableList, Withdrawal, Withdrawals,
 };
 use types::{
     ExecutionPayloadBellatrix, ExecutionPayloadCapella, ExecutionPayloadDeneb,
@@ -508,6 +508,7 @@ pub struct EngineCapabilities {
     pub get_payload_v4: bool,
     pub get_client_version_v1: bool,
     pub get_blobs_v1: bool,
+    pub get_inclusion_list_v1: bool,
 }
 
 impl EngineCapabilities {
@@ -557,6 +558,9 @@ impl EngineCapabilities {
         }
         if self.get_blobs_v1 {
             response.push(ENGINE_GET_BLOBS_V1);
+        }
+        if self.get_inclusion_list_v1 {
+            response.push(ENGINE_GET_INCLUSION_LIST_V1);
         }
 
         response
