@@ -2,7 +2,9 @@
 //! transition.
 
 use crate::{BeaconChain, BeaconChainTypes};
-use execution_layer::http::{ENGINE_GET_PAYLOAD_V4, ENGINE_NEW_PAYLOAD_V4};
+use execution_layer::http::{
+    ENGINE_GET_INCLUSION_LIST_V1, ENGINE_GET_PAYLOAD_V4, ENGINE_NEW_PAYLOAD_V4,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::Duration;
@@ -96,6 +98,11 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
                     if !capabilities.new_payload_v4 {
                         missing_methods.push(' ');
                         missing_methods.push_str(ENGINE_NEW_PAYLOAD_V4);
+                        all_good = false;
+                    }
+                    if !capabilities.get_inclusion_list_v1 {
+                        missing_methods.push(' ');
+                        missing_methods.push_str(ENGINE_GET_INCLUSION_LIST_V1);
                         all_good = false;
                     }
 
