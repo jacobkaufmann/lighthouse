@@ -163,6 +163,7 @@ pub trait EthSpec:
     /*
      * FOCIL
      */
+    type InclusionListCommitteeSize: Unsigned + Clone + Sync + Send + Debug + PartialEq;
     type MaxTransactionsPerInclusionList: Unsigned + Clone + Sync + Send + Debug + PartialEq;
 
     fn default_spec() -> ChainSpec;
@@ -380,6 +381,11 @@ pub trait EthSpec:
         Self::KzgCommitmentsInclusionProofDepth::to_usize()
     }
 
+    /// Returns the `IL_COMMITTEE_SIZE` constant for this specification.
+    fn inclusion_list_committee_size() -> usize {
+        Self::InclusionListCommitteeSize::to_usize()
+    }
+
     /// Returns the `MAX_TRANSACTIONS_PER_INCLUSION_LIST` constant for this specification.
     fn max_transactions_per_inclusion_list() -> usize {
         Self::MaxTransactionsPerInclusionList::to_usize()
@@ -448,6 +454,7 @@ impl EthSpec for MainnetEthSpec {
     type MaxAttesterSlashingsElectra = U1;
     type MaxAttestationsElectra = U8;
     type MaxWithdrawalRequestsPerPayload = U16;
+    type InclusionListCommitteeSize = U16;
     type MaxTransactionsPerInclusionList = U16;
 
     fn default_spec() -> ChainSpec {
@@ -515,6 +522,7 @@ impl EthSpec for MinimalEthSpec {
         MaxConsolidationRequestsPerPayload,
         MaxAttesterSlashingsElectra,
         MaxAttestationsElectra,
+        InclusionListCommitteeSize,
         MaxTransactionsPerInclusionList
     });
 
@@ -581,6 +589,7 @@ impl EthSpec for GnosisEthSpec {
     type FieldElementsPerExtBlob = U8192;
     type BytesPerCell = U2048;
     type KzgCommitmentsInclusionProofDepth = U4;
+    type InclusionListCommitteeSize = U16;
     type MaxTransactionsPerInclusionList = U16;
 
     fn default_spec() -> ChainSpec {

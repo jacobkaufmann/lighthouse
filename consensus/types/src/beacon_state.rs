@@ -809,6 +809,60 @@ impl<E: EthSpec> BeaconState<E> {
         cache.get_all_beacon_committees()
     }
 
+    /// Returns the inclusion list committee for the given `slot` in the current or next epoch.
+    ///
+    /// Spec v0.12.1
+    pub fn get_inclusion_list_commitee(
+        &self,
+        slot: Slot,
+        spec: &ChainSpec,
+    ) -> Result<Vec<usize>, Error> {
+        let epoch = slot.epoch(E::slots_per_epoch());
+        let current_epoch = self.current_epoch();
+        let next_epoch = current_epoch + 1;
+        if epoch != current_epoch || epoch != next_epoch {
+            return Err(Error::SlotOutOfBounds);
+        }
+
+        let seed = self.get_inclusion_list_seed(slot, spec)?;
+        let indices = self.get_active_validator_indices(epoch, spec)?;
+
+        let start =
+            (slot % E::slots_per_epoch()).as_usize() * E::InclusionListCommitteeSize::to_usize();
+        let end = start + E::InclusionListCommitteeSize::to_usize();
+
+        let mut i = start;
+        let mut il_committee_indices =
+            Vec::with_capacity(E::InclusionListCommitteeSize::to_usize());
+        while i < end {
+            let shuffled_index = compute_shuffled_index(
+                i.safe_rem(indices.len())?,
+                indices.len(),
+                &seed,
+                spec.shuffle_round_count,
+            )
+            .ok_or(Error::UnableToShuffle)?;
+            il_committee_indices.push(shuffled_index);
+            i.safe_add_assign(1)?;
+        }
+
+        Ok(il_committee_indices)
+    }
+
+    /// Compute the seed to use for the beacon inclusion list committee selection at the given
+    /// `slot`.
+    ///
+    /// Spec v0.12.1
+    pub fn get_inclusion_list_seed(&self, slot: Slot, spec: &ChainSpec) -> Result<Vec<u8>, Error> {
+        let epoch = slot.epoch(E::slots_per_epoch());
+        let mut preimage = self
+            .get_seed(epoch, Domain::InclusionListCommittee, spec)?
+            .as_slice()
+            .to_vec();
+        preimage.append(&mut int_to_bytes8(slot.as_u64()));
+        Ok(hash(&preimage))
+    }
+
     /// Returns the block root which decided the proposer shuffling for the epoch passed in parameter. This root
     /// can be used to key this proposer shuffling.
     ///
