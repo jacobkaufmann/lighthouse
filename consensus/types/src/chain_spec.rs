@@ -197,6 +197,7 @@ pub struct ChainSpec {
      * FOCIL params
      */
     pub domain_inclusion_list_committee: u32,
+    pub inclusion_list_committee_size: u64,
 
     /*
      * DAS params
@@ -815,6 +816,7 @@ impl ChainSpec {
              * FOCIL params
              */
             domain_inclusion_list_committee: 13,
+            inclusion_list_committee_size: 16,
 
             /*
              * DAS params
@@ -1139,6 +1141,7 @@ impl ChainSpec {
              * FOCIL params
              */
             domain_inclusion_list_committee: 13,
+            inclusion_list_committee_size: 16,
 
             /*
              * DAS params
