@@ -1638,6 +1638,53 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         Ok((duties, dependent_root, execution_status))
     }
 
+    /// Returns the inclusion list duties for the given validator indices.
+    ///
+    /// The returned `Vec` will have the same length as `validator_indices`, any
+    /// non-existing/inactive validators will have `None` values.
+    pub fn validator_inclusion_list_duties(
+        &self,
+        validator_indices: &[u64],
+        epoch: Epoch,
+        head_block_root: Hash256,
+    ) -> Result<(Vec<Option<InclusionListDuty>>, Hash256), Error> {
+        // NOTE: we likely need some additional logic to handle cases where the head block root is
+        // from some prior epoch.
+        let head_block = self
+            .canonical_head
+            .fork_choice_read_lock()
+            .get_block(&head_block_root)
+            .ok_or(Error::MissingBeaconBlock(head_block_root))?;
+
+        // NOTE: here we reuse the attestation shuffling IDs.
+        let shuffling_id = BlockShufflingIds {
+            current: head_block.current_epoch_shuffling_id.clone(),
+            next: head_block.next_epoch_shuffling_id.clone(),
+            previous: None,
+            block_root: head_block.root,
+        }
+        .id_for_epoch(epoch)
+        .ok_or_else(|| Error::InvalidShufflingId {
+            shuffling_epoch: epoch,
+            head_block_epoch: head_block.slot.epoch(T::EthSpec::slots_per_epoch()),
+        })?;
+        let dependent_root = shuffling_id.shuffling_decision_block;
+
+        let head_beacon_state = self.get_state(&head_block.root, Some(head_block.slot))?;
+        let Some(head_beacon_state) = head_beacon_state else {
+            return Err(Error::MissingBeaconState(head_block.root));
+        };
+        let duties = validator_indices
+            .iter()
+            .map(|&validator_index| {
+                head_beacon_state
+                    .get_inclusion_list_duties(validator_index as usize, epoch, &self.spec)
+                    .map_err(Error::InclusionListDutiesError)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((duties, dependent_root))
+    }
+
     pub fn get_aggregated_attestation(
         &self,
         attestation: AttestationRef<T::EthSpec>,
