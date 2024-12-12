@@ -13,6 +13,7 @@ mod block_rewards;
 mod build_block_contents;
 mod builder_states;
 mod database;
+mod inclusion_list_duties;
 mod light_client;
 mod metrics;
 mod produce_block;
@@ -257,6 +258,7 @@ pub fn prometheus_metrics() -> warp::filters::log::Log<impl Fn(warp::filters::lo
                 .or_else(|| starts_with("v1/validator/duties/attester"))
                 .or_else(|| starts_with("v1/validator/duties/proposer"))
                 .or_else(|| starts_with("v1/validator/duties/sync"))
+                .or_else(|| starts_with("v1/validator/duties/inclusion_list"))
                 .or_else(|| starts_with("v1/validator/attestation_data"))
                 .or_else(|| starts_with("v1/validator/aggregate_attestation"))
                 .or_else(|| starts_with("v2/validator/aggregate_attestation"))
@@ -3432,6 +3434,34 @@ pub fn serve<T: BeaconChainTypes>(
             },
         );
 
+    // POST validator/duties/inclusion_list/{epoch}
+    let post_validator_duties_inclusion_list = eth_v1
+        .and(warp::path("validator"))
+        .and(warp::path("duties"))
+        .and(warp::path("inclusion_list"))
+        .and(warp::path::param::<Epoch>().or_else(|_| async {
+            Err(warp_utils::reject::custom_bad_request(
+                "Invalid epoch".to_string(),
+            ))
+        }))
+        .and(warp::path::end())
+        .and(not_while_syncing_filter.clone())
+        .and(warp_utils::json::json())
+        .and(task_spawner_filter.clone())
+        .and(chain_filter.clone())
+        .then(
+            |epoch: Epoch,
+             not_synced_filter: Result<(), Rejection>,
+             indices: api_types::ValidatorIndexData,
+             task_spawner: TaskSpawner<T::EthSpec>,
+             chain: Arc<BeaconChain<T>>| {
+                task_spawner.blocking_json_task(Priority::P0, move || {
+                    not_synced_filter?;
+                    inclusion_list_duties::inclusion_list_duties(epoch, &indices.0, &chain)
+                })
+            },
+        );
+
     // GET validator/sync_committee_contribution
     let get_validator_sync_committee_contribution = eth_v1
         .and(warp::path("validator"))
@@ -4752,6 +4782,7 @@ pub fn serve<T: BeaconChainTypes>(
                     .uor(post_beacon_rewards_sync_committee)
                     .uor(post_validator_duties_attester)
                     .uor(post_validator_duties_sync)
+                    .uor(post_validator_duties_inclusion_list)
                     .uor(post_validator_aggregate_and_proofs)
                     .uor(post_validator_contribution_and_proofs)
                     .uor(post_validator_beacon_committee_subscriptions)

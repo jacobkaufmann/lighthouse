@@ -132,6 +132,7 @@ pub enum BeaconChainError {
         shuffling_epoch: Epoch,
     },
     SyncDutiesError(BeaconStateError),
+    InclusionListDutiesError(BeaconStateError),
     InconsistentForwardsIter {
         request_slot: Slot,
         slot: Slot,

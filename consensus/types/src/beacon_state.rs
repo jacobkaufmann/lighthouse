@@ -813,7 +813,7 @@ impl<E: EthSpec> BeaconState<E> {
     /// Returns the inclusion list committee for the given `slot` in the current or next epoch.
     ///
     /// Spec v0.12.1
-    pub fn get_inclusion_list_commitee(
+    pub fn get_inclusion_list_committee(
         &self,
         slot: Slot,
         spec: &ChainSpec,
@@ -1737,6 +1737,21 @@ impl<E: EthSpec> BeaconState<E> {
         let cache = self.committee_cache(relative_epoch)?;
 
         Ok(cache.get_attestation_duties(validator_index))
+    }
+
+    pub fn get_inclusion_list_duties(
+        &self,
+        validator_index: usize,
+        epoch: Epoch,
+        spec: &ChainSpec,
+    ) -> Result<Option<InclusionListDuty>, Error> {
+        for slot in epoch.slot_iter(E::slots_per_epoch()) {
+            let committee = self.get_inclusion_list_committee(slot, spec)?;
+            if committee.contains(&validator_index) {
+                return Ok(Some(InclusionListDuty { slot }));
+            }
+        }
+        Ok(None)
     }
 
     /// Compute the total active balance cache from scratch.
