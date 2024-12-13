@@ -138,6 +138,7 @@ pub struct Timeouts {
     pub proposer_duties: Duration,
     pub sync_committee_contribution: Duration,
     pub sync_duties: Duration,
+    pub inclusion_list_duties: Duration,
     pub get_beacon_blocks_ssz: Duration,
     pub get_debug_beacon_states: Duration,
     pub get_deposit_snapshot: Duration,
@@ -155,6 +156,7 @@ impl Timeouts {
             proposer_duties: timeout,
             sync_committee_contribution: timeout,
             sync_duties: timeout,
+            inclusion_list_duties: timeout,
             get_beacon_blocks_ssz: timeout,
             get_debug_beacon_states: timeout,
             get_deposit_snapshot: timeout,
@@ -2500,6 +2502,29 @@ impl BeaconNodeHttpClient {
             path,
             &ValidatorIndexDataRef(indices),
             self.timeouts.attester_duties,
+        )
+        .await
+    }
+
+    /// `POST validator/duties/inclusion_list/{epoch}`
+    pub async fn post_validator_duties_inclusion_list(
+        &self,
+        epoch: Epoch,
+        indices: &[u64],
+    ) -> Result<DutiesResponse<Vec<InclusionListDutyData>>, Error> {
+        let mut path = self.eth_path(V1)?;
+
+        path.path_segments_mut()
+            .map_err(|()| Error::InvalidUrl(self.server.clone()))?
+            .push("validator")
+            .push("duties")
+            .push("inclusion_list")
+            .push(&epoch.to_string());
+
+        self.post_with_timeout_and_response(
+            path,
+            &ValidatorIndexDataRef(indices),
+            self.timeouts.inclusion_list_duties,
         )
         .await
     }

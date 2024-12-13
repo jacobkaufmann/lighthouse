@@ -66,6 +66,7 @@ const HTTP_PROPOSAL_TIMEOUT_QUOTIENT: u32 = 2;
 const HTTP_PROPOSER_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_SYNC_COMMITTEE_CONTRIBUTION_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_SYNC_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
+const HTTP_INCLUSION_LIST_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_GET_BEACON_BLOCK_SSZ_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_GET_DEBUG_BEACON_STATE_QUOTIENT: u32 = 4;
 const HTTP_GET_DEPOSIT_SNAPSHOT_QUOTIENT: u32 = 4;
@@ -318,6 +319,8 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
                     sync_committee_contribution: slot_duration
                         / HTTP_SYNC_COMMITTEE_CONTRIBUTION_TIMEOUT_QUOTIENT,
                     sync_duties: slot_duration / HTTP_SYNC_DUTIES_TIMEOUT_QUOTIENT,
+                    inclusion_list_duties: slot_duration
+                        / HTTP_INCLUSION_LIST_DUTIES_TIMEOUT_QUOTIENT,
                     get_beacon_blocks_ssz: slot_duration
                         / HTTP_GET_BEACON_BLOCK_SSZ_TIMEOUT_QUOTIENT,
                     get_debug_beacon_states: slot_duration / HTTP_GET_DEBUG_BEACON_STATE_QUOTIENT,
@@ -470,6 +473,7 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
             attesters: <_>::default(),
             proposers: <_>::default(),
             sync_duties: SyncDutiesMap::new(config.distributed),
+            inclusion_list_duties: <_>::default(),
             slot_clock: slot_clock.clone(),
             beacon_nodes: beacon_nodes.clone(),
             validator_store: validator_store.clone(),
