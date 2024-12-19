@@ -9,6 +9,11 @@ use test_random_derive::TestRandom;
 use tree_hash::TreeHash;
 use tree_hash_derive::TreeHash;
 
+pub type InclusionListTransactions<E> = VariableList<
+    Transaction<<E as EthSpec>::MaxBytesPerTransaction>,
+    <E as EthSpec>::MaxTransactionsPerInclusionList,
+>;
+
 #[derive(
     Debug,
     Clone,
@@ -29,8 +34,7 @@ pub struct InclusionList<E: EthSpec> {
     #[serde(with = "serde_utils::quoted_u64")]
     pub validator_index: u64,
     pub inclusion_list_committee_root: Hash256,
-    pub transactions:
-        VariableList<Transaction<E::MaxBytesPerTransaction>, E::MaxTransactionsPerInclusionList>,
+    pub transactions: InclusionListTransactions<E>,
 }
 
 impl<E: EthSpec> SignedRoot for InclusionList<E> {}

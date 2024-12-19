@@ -44,6 +44,7 @@ use validator_services::{
     attestation_service::{AttestationService, AttestationServiceBuilder},
     block_service::{BlockService, BlockServiceBuilder},
     duties_service::{self, DutiesService},
+    inclusion_list_service::InclusionListService,
     preparation_service::{PreparationService, PreparationServiceBuilder},
     sync::SyncDutiesMap,
     sync_committee_service::SyncCommitteeService,
@@ -66,6 +67,7 @@ const HTTP_PROPOSAL_TIMEOUT_QUOTIENT: u32 = 2;
 const HTTP_PROPOSER_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_SYNC_COMMITTEE_CONTRIBUTION_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_SYNC_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
+const HTTP_INCLUSION_LIST_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_INCLUSION_LIST_DUTIES_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_GET_BEACON_BLOCK_SSZ_TIMEOUT_QUOTIENT: u32 = 4;
 const HTTP_GET_DEBUG_BEACON_STATE_QUOTIENT: u32 = 4;
@@ -81,6 +83,7 @@ pub struct ProductionValidatorClient<E: EthSpec> {
     block_service: BlockService<SystemTimeSlotClock, E>,
     attestation_service: AttestationService<SystemTimeSlotClock, E>,
     sync_committee_service: SyncCommitteeService<SystemTimeSlotClock, E>,
+    inclusion_list_service: InclusionListService<SystemTimeSlotClock, E>,
     doppelganger_service: Option<Arc<DoppelgangerService>>,
     preparation_service: PreparationService<SystemTimeSlotClock, E>,
     validator_store: Arc<ValidatorStore<SystemTimeSlotClock, E>>,
@@ -319,6 +322,7 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
                     sync_committee_contribution: slot_duration
                         / HTTP_SYNC_COMMITTEE_CONTRIBUTION_TIMEOUT_QUOTIENT,
                     sync_duties: slot_duration / HTTP_SYNC_DUTIES_TIMEOUT_QUOTIENT,
+                    inclusion_list: slot_duration / HTTP_INCLUSION_LIST_TIMEOUT_QUOTIENT,
                     inclusion_list_duties: slot_duration
                         / HTTP_INCLUSION_LIST_DUTIES_TIMEOUT_QUOTIENT,
                     get_beacon_blocks_ssz: slot_duration
@@ -530,12 +534,21 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
             context.service_context("sync_committee".into()),
         );
 
+        let inclusion_list_service = InclusionListService::new(
+            duties_service.clone(),
+            validator_store.clone(),
+            slot_clock.clone(),
+            beacon_nodes.clone(),
+            context.service_context("inclusion_list".into()),
+        );
+
         Ok(Self {
             context,
             duties_service,
             block_service,
             attestation_service,
             sync_committee_service,
+            inclusion_list_service,
             doppelganger_service,
             preparation_service,
             validator_store,
@@ -610,6 +623,11 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
             .clone()
             .start_update_service(&self.context.eth2_config.spec)
             .map_err(|e| format!("Unable to start sync committee service: {}", e))?;
+
+        self.inclusion_list_service
+            .clone()
+            .start_update_service(&self.context.eth2_config.spec)
+            .map_err(|e| format!("Unable to start inclusion list service: {}", e))?;
 
         self.preparation_service
             .clone()

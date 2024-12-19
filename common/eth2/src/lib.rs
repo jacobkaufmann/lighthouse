@@ -138,6 +138,7 @@ pub struct Timeouts {
     pub proposer_duties: Duration,
     pub sync_committee_contribution: Duration,
     pub sync_duties: Duration,
+    pub inclusion_list: Duration,
     pub inclusion_list_duties: Duration,
     pub get_beacon_blocks_ssz: Duration,
     pub get_debug_beacon_states: Duration,
@@ -156,6 +157,7 @@ impl Timeouts {
             proposer_duties: timeout,
             sync_committee_contribution: timeout,
             sync_duties: timeout,
+            inclusion_list: timeout,
             inclusion_list_duties: timeout,
             get_beacon_blocks_ssz: timeout,
             get_debug_beacon_states: timeout,
@@ -1574,6 +1576,25 @@ impl BeaconNodeHttpClient {
         Ok(())
     }
 
+    /// `POST beacon/pool/inclusion_lists`
+    pub async fn post_beacon_pool_inclusion_lists<E: EthSpec>(
+        &self,
+        inclusion_lists: &[SignedInclusionList<E>],
+    ) -> Result<(), Error> {
+        let mut path = self.eth_path(V1)?;
+
+        path.path_segments_mut()
+            .map_err(|()| Error::InvalidUrl(self.server.clone()))?
+            .push("beacon")
+            .push("pool")
+            .push("inclusion_lists");
+
+        self.post_with_timeout(path, &inclusion_lists, self.timeouts.inclusion_list)
+            .await?;
+
+        Ok(())
+    }
+
     /// `GET beacon/deposit_snapshot`
     pub async fn get_deposit_snapshot(&self) -> Result<Option<types::DepositTreeSnapshot>, Error> {
         let mut path = self.eth_path(V1)?;
@@ -2435,6 +2456,25 @@ impl BeaconNodeHttpClient {
             );
 
         self.get_opt(path).await
+    }
+
+    /// `GET validator/inclusion_list?slot`
+    pub async fn get_validator_inclusion_list<E: EthSpec>(
+        &self,
+        slot: Slot,
+    ) -> Result<Option<GenericResponse<InclusionList<E>>>, Error> {
+        let mut path = self.eth_path(V1)?;
+
+        path.path_segments_mut()
+            .map_err(|()| Error::InvalidUrl(self.server.clone()))?
+            .push("validator")
+            .push("inclusion_list");
+
+        path.query_pairs_mut()
+            .append_pair("slot", &slot.to_string());
+
+        self.get_opt_with_timeout(path, self.timeouts.inclusion_list)
+            .await
     }
 
     /// `POST lighthouse/liveness`

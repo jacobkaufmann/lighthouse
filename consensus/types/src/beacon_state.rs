@@ -817,7 +817,7 @@ impl<E: EthSpec> BeaconState<E> {
         &self,
         slot: Slot,
         spec: &ChainSpec,
-    ) -> Result<Vec<usize>, Error> {
+    ) -> Result<InclusionListCommittee<E>, Error> {
         let epoch = slot.epoch(E::slots_per_epoch());
         let current_epoch = self.current_epoch();
         let next_epoch = current_epoch + 1;
@@ -843,11 +843,11 @@ impl<E: EthSpec> BeaconState<E> {
                 spec.shuffle_round_count,
             )
             .ok_or(Error::UnableToShuffle)?;
-            il_committee_indices.push(shuffled_index);
+            il_committee_indices.push(shuffled_index as u64);
             i.safe_add_assign(1)?;
         }
 
-        Ok(il_committee_indices)
+        Ok(InclusionListCommittee::<E>::from(il_committee_indices))
     }
 
     /// Compute the seed to use for the beacon inclusion list committee selection at the given
@@ -1745,10 +1745,16 @@ impl<E: EthSpec> BeaconState<E> {
         epoch: Epoch,
         spec: &ChainSpec,
     ) -> Result<Option<InclusionListDuty>, Error> {
+        let validator_index = validator_index as u64;
         for slot in epoch.slot_iter(E::slots_per_epoch()) {
             let committee = self.get_inclusion_list_committee(slot, spec)?;
+            let committee_root = committee.tree_hash_root();
             if committee.contains(&validator_index) {
-                return Ok(Some(InclusionListDuty { slot }));
+                return Ok(Some(InclusionListDuty {
+                    slot,
+                    validator_index,
+                    committee_root,
+                }));
             }
         }
         Ok(None)

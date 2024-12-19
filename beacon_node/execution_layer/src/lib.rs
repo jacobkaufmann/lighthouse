@@ -54,8 +54,8 @@ use types::{
 };
 use types::{
     BeaconStateError, BlindedPayload, ChainSpec, Epoch, ExecPayload, ExecutionPayloadBellatrix,
-    ExecutionPayloadCapella, ExecutionPayloadElectra, FullPayload, ProposerPreparationData,
-    PublicKeyBytes, Signature, Slot,
+    ExecutionPayloadCapella, ExecutionPayloadElectra, FullPayload, InclusionListTransactions,
+    ProposerPreparationData, PublicKeyBytes, Signature, Slot,
 };
 
 mod block_hash;
@@ -1941,6 +1941,19 @@ impl<E: EthSpec> ExecutionLayer<E> {
         } else {
             Err(Error::NoPayloadBuilder)
         }
+    }
+
+    pub async fn get_inclusion_list(
+        &self,
+        parent_hash: Hash256,
+    ) -> Result<InclusionListTransactions<E>, Error> {
+        debug!(self.log(), "Requesting inclusion list from EL"; "parent_hash" => %parent_hash);
+        let transactions = self
+            .engine()
+            .api
+            .get_inclusion_list::<E>(parent_hash)
+            .await?;
+        Ok(transactions)
     }
 }
 

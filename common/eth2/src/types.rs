@@ -793,6 +793,11 @@ pub struct ValidatorAggregateAttestationQuery {
     pub committee_index: Option<CommitteeIndex>,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ValidatorInclusionListQuery {
+    pub slot: Slot,
+}
+
 #[derive(Clone, Deserialize)]
 pub struct LightClientUpdatesQuery {
     pub start_period: u64,

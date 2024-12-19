@@ -334,6 +334,25 @@ impl<T: SlotClock + 'static, E: EthSpec> DutiesService<T, E> {
             .collect()
     }
 
+    /// Returns all `InclusionListDutyData` for the given `slot`.
+    pub fn inclusion_list_duties(&self, slot: Slot) -> Vec<InclusionListDutyData> {
+        let epoch = slot.epoch(E::slots_per_epoch());
+
+        // Only collect validators that are considered safe in terms of doppelganger protection.
+        let signing_pubkeys: HashSet<_> = self
+            .validator_store
+            .voting_pubkeys(DoppelgangerStatus::only_safe);
+
+        self.inclusion_list_duties
+            .read()
+            .iter()
+            .filter_map(|(_, map)| map.get(&epoch))
+            .map(|(_, duty)| duty)
+            .filter(|duty| duty.slot == slot && signing_pubkeys.contains(&duty.pubkey))
+            .cloned()
+            .collect()
+    }
+
     /// Returns `true` if we should collect per validator metrics and `false` otherwise.
     pub fn per_validator_metrics(&self) -> bool {
         self.enable_high_validator_count_metrics

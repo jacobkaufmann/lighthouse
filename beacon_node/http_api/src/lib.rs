@@ -86,8 +86,8 @@ use types::{
     AttesterSlashing, BeaconStateError, CommitteeCache, ConfigAndPreset, Epoch, EthSpec, ForkName,
     ForkVersionedResponse, Hash256, ProposerPreparationData, ProposerSlashing, RelativeEpoch,
     SignedAggregateAndProof, SignedBlindedBeaconBlock, SignedBlsToExecutionChange,
-    SignedContributionAndProof, SignedValidatorRegistrationData, SignedVoluntaryExit, Slot,
-    SyncCommitteeMessage, SyncContributionData,
+    SignedContributionAndProof, SignedInclusionList, SignedValidatorRegistrationData,
+    SignedVoluntaryExit, Slot, SyncCommitteeMessage, SyncContributionData,
 };
 use validator::pubkey_to_validator_index;
 use version::{
@@ -265,6 +265,7 @@ pub fn prometheus_metrics() -> warp::filters::log::Log<impl Fn(warp::filters::lo
                 .or_else(|| starts_with("v1/validator/aggregate_and_proofs"))
                 .or_else(|| starts_with("v2/validator/aggregate_and_proofs"))
                 .or_else(|| starts_with("v1/validator/sync_committee_contribution"))
+                .or_else(|| starts_with("v1/validator/inclusion_list"))
                 .or_else(|| starts_with("v1/validator/contribution_and_proofs"))
                 .or_else(|| starts_with("v1/validator/beacon_committee_subscriptions"))
                 .or_else(|| starts_with("v1/validator/sync_committee_subscriptions"))
@@ -2256,6 +2257,33 @@ pub fn serve<T: BeaconChainTypes>(
             },
         );
 
+    // POST beacon/pool/inclusion_lists
+    let post_beacon_pool_inclusion_lists = beacon_pool_path
+        .clone()
+        .and(warp::path("inclusion_lists"))
+        .and(warp::path::end())
+        .and(warp_utils::json::json())
+        .and(network_tx_filter.clone())
+        .and(log_filter.clone())
+        .then(
+            |task_spawner: TaskSpawner<T::EthSpec>,
+             chain: Arc<BeaconChain<T>>,
+             inclusion_lists: Vec<SignedInclusionList<T::EthSpec>>,
+             network_tx: UnboundedSender<NetworkMessage<T::EthSpec>>,
+             log: Logger| {
+                task_spawner.blocking_json_task(Priority::P0, move || {
+                    // TODO: actually gossip the inclusion lists
+                    info!(
+                        log,
+                        "Posting signed inclusion lists for gossip";
+                        "num_inclusion_lists" => inclusion_lists.len(),
+                    );
+
+                    Ok(())
+                })
+            },
+        );
+
     // GET beacon/deposit_snapshot
     let get_beacon_deposit_snapshot = eth_v1
         .and(warp::path("beacon"))
@@ -3496,6 +3524,47 @@ pub fn serve<T: BeaconChainTypes>(
             },
         );
 
+    // GET validator/inclusion_list?slot
+    let get_validator_inclusion_list = eth_v1
+        .and(warp::path("validator"))
+        .and(warp::path("inclusion_list"))
+        .and(warp::path::end())
+        .and(warp::query::<api_types::ValidatorInclusionListQuery>())
+        .and(not_while_syncing_filter.clone())
+        .and(task_spawner_filter.clone())
+        .and(chain_filter.clone())
+        .then(
+            |query: api_types::ValidatorInclusionListQuery,
+             not_synced_filter: Result<(), Rejection>,
+             task_spawner: TaskSpawner<T::EthSpec>,
+             chain: Arc<BeaconChain<T>>| {
+                task_spawner.spawn_async_with_rejection(Priority::P0, async move {
+                    not_synced_filter?;
+
+                    let current_slot = chain
+                        .slot()
+                        .map_err(warp_utils::reject::beacon_chain_error)?;
+
+                    // allow a tolerance of one slot to account for clock skew
+                    //
+                    // TODO: make sure tolerance is consistent with inner logic
+                    if query.slot > current_slot + 1 {
+                        return Err(warp_utils::reject::custom_bad_request(format!(
+                            "request slot {} is more than one slot past the current slot {}",
+                            query.slot, current_slot
+                        )));
+                    }
+
+                    let data = chain
+                        .produce_inclusion_list(query.slot)
+                        .await
+                        .map(|il| il.clone())
+                        .map(api_types::GenericResponse::from)
+                        .map_err(warp_utils::reject::beacon_chain_error)?;
+                    Ok::<_, warp::reject::Rejection>(warp::reply::json(&data).into_response())
+                })
+            },
+        );
     // POST validator/aggregate_and_proofs
     let post_validator_aggregate_and_proofs = any_version
         .and(warp::path("validator"))
@@ -4715,6 +4784,7 @@ pub fn serve<T: BeaconChainTypes>(
                 .uor(get_validator_attestation_data)
                 .uor(get_validator_aggregate_attestation)
                 .uor(get_validator_sync_committee_contribution)
+                .uor(get_validator_inclusion_list)
                 .uor(get_lighthouse_health)
                 .uor(get_lighthouse_ui_health)
                 .uor(get_lighthouse_ui_validator_count)
