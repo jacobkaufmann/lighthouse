@@ -724,6 +724,7 @@ async fn sort_nodes_by_health<E: EthSpec>(nodes: &mut Vec<CandidateBeaconNode<E>
 pub enum ApiTopic {
     Attestations,
     Blocks,
+    InclusionLists,
     Subscriptions,
     SyncCommittee,
 }
@@ -731,7 +732,13 @@ pub enum ApiTopic {
 impl ApiTopic {
     pub fn all() -> Vec<ApiTopic> {
         use ApiTopic::*;
-        vec![Attestations, Blocks, Subscriptions, SyncCommittee]
+        vec![
+            Attestations,
+            Blocks,
+            InclusionLists,
+            Subscriptions,
+            SyncCommittee,
+        ]
     }
 }
 

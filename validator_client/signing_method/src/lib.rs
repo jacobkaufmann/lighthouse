@@ -47,6 +47,7 @@ pub enum SignableMessage<'a, E: EthSpec, Payload: AbstractExecPayload<E> = FullP
     SignedContributionAndProof(&'a ContributionAndProof<E>),
     ValidatorRegistration(&'a ValidatorRegistrationData),
     VoluntaryExit(&'a VoluntaryExit),
+    InclusionList(&'a InclusionList<E>),
 }
 
 impl<'a, E: EthSpec, Payload: AbstractExecPayload<E>> SignableMessage<'a, E, Payload> {
@@ -68,6 +69,7 @@ impl<'a, E: EthSpec, Payload: AbstractExecPayload<E>> SignableMessage<'a, E, Pay
             SignableMessage::SignedContributionAndProof(c) => c.signing_root(domain),
             SignableMessage::ValidatorRegistration(v) => v.signing_root(domain),
             SignableMessage::VoluntaryExit(exit) => exit.signing_root(domain),
+            SignableMessage::InclusionList(il) => il.signing_root(domain),
         }
     }
 }
@@ -223,6 +225,7 @@ impl SigningMethod {
                         Web3SignerObject::ValidatorRegistration(v)
                     }
                     SignableMessage::VoluntaryExit(e) => Web3SignerObject::VoluntaryExit(e),
+                    SignableMessage::InclusionList(il) => Web3SignerObject::InclusionList(il),
                 };
 
                 // Determine the Web3Signer message type.

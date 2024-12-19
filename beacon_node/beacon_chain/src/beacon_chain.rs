@@ -2044,6 +2044,85 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         )?)
     }
 
+    /// Produce an `InclusionList` that is valid for the given `slot`.
+    ///
+    /// The produced `InclusionList` will not be valid until it has been signed by exactly one
+    /// validator that is in the inclusion list committee for `slot` in the canonical chain.
+    ///
+    /// ## Errors
+    ///
+    /// May return an error if the `request_slot` is too far behind the head state.
+    pub async fn produce_inclusion_list(
+        self: &Arc<Self>,
+        request_slot: Slot,
+    ) -> Result<Option<InclusionListTransactions<T::EthSpec>>, Error> {
+        let execution_layer = self
+            .execution_layer
+            .clone()
+            .ok_or(Error::ExecutionLayerMissing)?;
+
+        // Load the cached head and the associated block hash and slot.
+        //
+        // Use a blocking task since blocking the core executor on the canonical head read lock can
+        // block the core tokio executor.
+        let chain = self.clone();
+        let (head_slot, head_hash) = self
+            .spawn_blocking_handle(
+                move || {
+                    let cached_head = chain.canonical_head.cached_head();
+                    let head_slot = cached_head.head_slot();
+                    let head_hash = cached_head.head_hash();
+                    (head_slot, head_hash)
+                },
+                "produce_inclusion_list_head_read",
+            )
+            .await?;
+
+        // NOTE: not sure how to handle scenario where head hash is `None` i.e. pre-bellatrix, which
+        // is pre-electra.
+        let Some(head_hash) = head_hash else {
+            debug!(
+                self.log,
+                "Attempted to produce inclusion list pre-bellatrix"
+            );
+            return Ok(None);
+        };
+
+        let current_slot = self.slot()?;
+        let next_slot = current_slot.safe_add(1)?;
+
+        // Don't bother with the inclusion list if the head is not the current slot.
+        //
+        // This prevents the routine from running during sync.
+        if head_slot != current_slot {
+            debug!(
+                self.log,
+                "Head too old for inclusion list";
+                "head_slot" => %head_slot,
+                "current_slot" => %current_slot,
+            );
+            return Ok(None);
+        }
+
+        // Don't bother with the inclusion list if the request slot is not the next
+        // slot.
+        //
+        // NOTE: does this represent a critical error? should we return an error here or log crit?
+        // is this check redundant?
+        if request_slot != next_slot {
+            debug!(self.log, "Inclusion list request slot not equal to next slot"; "request_slot" => %request_slot, "next_slot" => %next_slot);
+            return Ok(None);
+        }
+
+        // Retrieve the inclusion list from the execution layer.
+        let inclusion_list = execution_layer
+            .get_inclusion_list(head_hash.into_root())
+            .await
+            .map_err(|e| Error::ExecutionLayerGetInclusionListFailed(Box::new(e)))?;
+
+        Ok(Some(inclusion_list))
+    }
+
     /// Performs the same validation as `Self::verify_unaggregated_attestation_for_gossip`, but for
     /// multiple attestations using batch BLS verification. Batch verification can provide
     /// significant CPU-time savings compared to individual verification.

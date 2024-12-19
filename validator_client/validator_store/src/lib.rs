@@ -16,11 +16,11 @@ use task_executor::TaskExecutor;
 use types::{
     attestation::Error as AttestationError, graffiti::GraffitiString, AbstractExecPayload, Address,
     AggregateAndProof, Attestation, BeaconBlock, BlindedPayload, ChainSpec, ContributionAndProof,
-    Domain, Epoch, EthSpec, Fork, Graffiti, Hash256, PublicKeyBytes, SelectionProof, Signature,
-    SignedAggregateAndProof, SignedBeaconBlock, SignedContributionAndProof, SignedRoot,
-    SignedValidatorRegistrationData, SignedVoluntaryExit, Slot, SyncAggregatorSelectionData,
-    SyncCommitteeContribution, SyncCommitteeMessage, SyncSelectionProof, SyncSubnetId,
-    ValidatorRegistrationData, VoluntaryExit,
+    Domain, Epoch, EthSpec, Fork, Graffiti, Hash256, InclusionList, PublicKeyBytes, SelectionProof,
+    Signature, SignedAggregateAndProof, SignedBeaconBlock, SignedContributionAndProof,
+    SignedInclusionList, SignedRoot, SignedValidatorRegistrationData, SignedVoluntaryExit, Slot,
+    SyncAggregatorSelectionData, SyncCommitteeContribution, SyncCommitteeMessage,
+    SyncSelectionProof, SyncSubnetId, ValidatorRegistrationData, VoluntaryExit,
 };
 
 #[derive(Debug, PartialEq)]
@@ -1007,6 +1007,30 @@ impl<T: SlotClock + 'static, E: EthSpec> ValidatorStore<T, E> {
         );
 
         Ok(SignedContributionAndProof { message, signature })
+    }
+
+    pub async fn sign_inclusion_list(
+        &self,
+        pubkey: PublicKeyBytes,
+        inclusion_list: InclusionList<E>,
+    ) -> Result<SignedInclusionList<E>, Error> {
+        let signing_epoch = inclusion_list.slot.epoch(E::slots_per_epoch());
+        let signing_context = self.signing_context(Domain::InclusionListCommittee, signing_epoch);
+        let signing_method = self.doppelganger_bypassed_signing_method(pubkey)?;
+
+        let signature = signing_method
+            .get_signature::<E, BlindedPayload<E>>(
+                SignableMessage::InclusionList(&inclusion_list),
+                signing_context,
+                &self.spec,
+                &self.task_executor,
+            )
+            .await?;
+
+        Ok(SignedInclusionList {
+            message: inclusion_list,
+            signature,
+        })
     }
 
     pub fn import_slashing_protection(
