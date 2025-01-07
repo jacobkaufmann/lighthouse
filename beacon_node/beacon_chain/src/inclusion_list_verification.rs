@@ -29,6 +29,8 @@ impl From<BeaconChainError> for GossipInclusionListError {
 }
 
 pub struct GossipVerifiedInclusionList<T: BeaconChainTypes> {
+    // TODO(focil) remove once this field is read
+    #[allow(dead_code)]
     signed_il: SignedInclusionList<T::EthSpec>,
 }
 

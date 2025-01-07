@@ -541,8 +541,8 @@ impl<T: BeaconChainTypes> Router<T> {
                             bls_to_execution_change,
                         ),
                 ),
-            PubsubMessage::InclusionList(il) => {
-                // TODO
+            PubsubMessage::InclusionList(_il) => {
+                // TODO(focil)
             }
         }
     }

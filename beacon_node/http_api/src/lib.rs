@@ -2258,7 +2258,8 @@ pub fn serve<T: BeaconChainTypes>(
         );
 
     // POST beacon/pool/inclusion_lists
-    let post_beacon_pool_inclusion_lists = beacon_pool_path
+    // TODO(focil) unused endpoint and variables
+    let _post_beacon_pool_inclusion_lists = beacon_pool_path
         .clone()
         .and(warp::path("inclusion_lists"))
         .and(warp::path::end())
@@ -2267,12 +2268,12 @@ pub fn serve<T: BeaconChainTypes>(
         .and(log_filter.clone())
         .then(
             |task_spawner: TaskSpawner<T::EthSpec>,
-             chain: Arc<BeaconChain<T>>,
+             _chain: Arc<BeaconChain<T>>,
              inclusion_lists: Vec<SignedInclusionList<T::EthSpec>>,
-             network_tx: UnboundedSender<NetworkMessage<T::EthSpec>>,
+             _network_tx: UnboundedSender<NetworkMessage<T::EthSpec>>,
              log: Logger| {
                 task_spawner.blocking_json_task(Priority::P0, move || {
-                    // TODO: actually gossip the inclusion lists
+                    // TODO(focil): actually gossip the inclusion lists
                     info!(
                         log,
                         "Posting signed inclusion lists for gossip";
@@ -3547,7 +3548,7 @@ pub fn serve<T: BeaconChainTypes>(
 
                     // allow a tolerance of one slot to account for clock skew
                     //
-                    // TODO: make sure tolerance is consistent with inner logic
+                    // TODO(focil) make sure tolerance is consistent with inner logic
                     if query.slot > current_slot + 1 {
                         return Err(warp_utils::reject::custom_bad_request(format!(
                             "request slot {} is more than one slot past the current slot {}",
@@ -3558,7 +3559,6 @@ pub fn serve<T: BeaconChainTypes>(
                     let data = chain
                         .produce_inclusion_list(query.slot)
                         .await
-                        .map(|il| il.clone())
                         .map(api_types::GenericResponse::from)
                         .map_err(warp_utils::reject::beacon_chain_error)?;
                     Ok::<_, warp::reject::Rejection>(warp::reply::json(&data).into_response())
