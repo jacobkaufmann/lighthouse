@@ -52,6 +52,7 @@ pub enum NotifyExecutionLayer {
 pub struct PayloadNotifier<T: BeaconChainTypes> {
     pub chain: Arc<BeaconChain<T>>,
     pub block: Arc<SignedBeaconBlock<T::EthSpec>>,
+    pub inclusion_list_transactions: InclusionListTransactions<T::EthSpec>,
     payload_verification_status: Option<PayloadVerificationStatus>,
 }
 
@@ -102,10 +103,16 @@ impl<T: BeaconChainTypes> PayloadNotifier<T> {
             Some(PayloadVerificationStatus::Irrelevant)
         };
 
+        let inclusion_list_transactions = chain
+            .inclusion_list_cache
+            .get_inclusion_list_transactions(block.slot())
+            .unwrap_or(vec![].into());
+
         Ok(Self {
             chain,
             block,
             payload_verification_status,
+            inclusion_list_transactions,
         })
     }
 
@@ -113,7 +120,12 @@ impl<T: BeaconChainTypes> PayloadNotifier<T> {
         if let Some(precomputed_status) = self.payload_verification_status {
             Ok(precomputed_status)
         } else {
-            notify_new_payload(&self.chain, self.block.message()).await
+            notify_new_payload(
+                &self.chain,
+                self.block.message(),
+                self.inclusion_list_transactions,
+            )
+            .await
         }
     }
 }
@@ -130,6 +142,7 @@ impl<T: BeaconChainTypes> PayloadNotifier<T> {
 async fn notify_new_payload<'a, T: BeaconChainTypes>(
     chain: &Arc<BeaconChain<T>>,
     block: BeaconBlockRef<'a, T::EthSpec>,
+    il_transactions: InclusionListTransactions<T::EthSpec>,
 ) -> Result<PayloadVerificationStatus, BlockError> {
     let execution_layer = chain
         .execution_layer
@@ -137,7 +150,12 @@ async fn notify_new_payload<'a, T: BeaconChainTypes>(
         .ok_or(ExecutionPayloadError::NoExecutionConnection)?;
 
     let execution_block_hash = block.execution_payload()?.block_hash();
-    let new_payload_response = execution_layer.notify_new_payload(block.try_into()?).await;
+    let new_payload_response = execution_layer
+        .notify_new_payload(NewPayloadRequest::try_from_block_and_il_transactions(
+            block,
+            il_transactions,
+        )?)
+        .await;
 
     match new_payload_response {
         Ok(status) => match status {

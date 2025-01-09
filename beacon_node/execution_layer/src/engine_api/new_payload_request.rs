@@ -5,7 +5,7 @@ use state_processing::per_block_processing::deneb::kzg_commitment_to_versioned_h
 use superstruct::superstruct;
 use types::{
     BeaconBlockRef, BeaconStateError, EthSpec, ExecutionBlockHash, ExecutionPayload,
-    ExecutionPayloadRef, Hash256, VersionedHash,
+    ExecutionPayloadRef, Hash256, InclusionListTransactions, VersionedHash,
 };
 use types::{
     ExecutionPayloadBellatrix, ExecutionPayloadCapella, ExecutionPayloadDeneb,
@@ -45,6 +45,8 @@ pub struct NewPayloadRequest<'block, E: EthSpec> {
     pub parent_beacon_block_root: Hash256,
     #[superstruct(only(Electra))]
     pub execution_requests: &'block ExecutionRequests<E>,
+    #[superstruct(only(Electra))]
+    pub il_transactions: InclusionListTransactions<E>,
 }
 
 impl<'block, E: EthSpec> NewPayloadRequest<'block, E> {
@@ -153,13 +155,14 @@ impl<'block, E: EthSpec> NewPayloadRequest<'block, E> {
     }
 }
 
-impl<'a, E: EthSpec> TryFrom<BeaconBlockRef<'a, E>> for NewPayloadRequest<'a, E> {
-    type Error = BeaconStateError;
-
-    fn try_from(block: BeaconBlockRef<'a, E>) -> Result<Self, Self::Error> {
+impl<'a, E: EthSpec> NewPayloadRequest<'a, E> {
+    pub fn try_from_block_and_il_transactions(
+        block: BeaconBlockRef<'a, E>,
+        il_transactions: InclusionListTransactions<E>,
+    ) -> Result<Self, BeaconStateError> {
         match block {
             BeaconBlockRef::Base(_) | BeaconBlockRef::Altair(_) => {
-                Err(Self::Error::IncorrectStateVariant)
+                Err(BeaconStateError::IncorrectStateVariant)
             }
             BeaconBlockRef::Bellatrix(block_ref) => {
                 Ok(Self::Bellatrix(NewPayloadRequestBellatrix {
@@ -189,6 +192,50 @@ impl<'a, E: EthSpec> TryFrom<BeaconBlockRef<'a, E>> for NewPayloadRequest<'a, E>
                     .collect(),
                 parent_beacon_block_root: block_ref.parent_root,
                 execution_requests: &block_ref.body.execution_requests,
+                il_transactions,
+            })),
+        }
+    }
+}
+
+impl<'a, E: EthSpec> TryFrom<BeaconBlockRef<'a, E>> for NewPayloadRequest<'a, E> {
+    type Error = BeaconStateError;
+
+    fn try_from(block: BeaconBlockRef<'a, E>) -> Result<Self, Self::Error> {
+        match block {
+            BeaconBlockRef::Base(_) | BeaconBlockRef::Altair(_) => {
+                Err(Self::Error::IncorrectStateVariant)
+            }
+            BeaconBlockRef::Bellatrix(block_ref) => {
+                Ok(Self::Bellatrix(NewPayloadRequestBellatrix {
+                    execution_payload: &block_ref.body.execution_payload.execution_payload,
+                }))
+            }
+            BeaconBlockRef::Capella(block_ref) => Ok(Self::Capella(NewPayloadRequestCapella {
+                execution_payload: &block_ref.body.execution_payload.execution_payload,
+            })),
+            BeaconBlockRef::Deneb(block_ref) => Ok(Self::Deneb(NewPayloadRequestDeneb {
+                execution_payload: &block_ref.body.execution_payload.execution_payload,
+                versioned_hashes: block_ref
+                    .body
+                    .blob_kzg_commitments
+                    .iter()
+                    .map(kzg_commitment_to_versioned_hash)
+                    .collect(),
+                parent_beacon_block_root: block_ref.parent_root,
+            })),
+            // TODO(focil) need to clean up this conversion
+            BeaconBlockRef::Electra(block_ref) => Ok(Self::Electra(NewPayloadRequestElectra {
+                execution_payload: &block_ref.body.execution_payload.execution_payload,
+                versioned_hashes: block_ref
+                    .body
+                    .blob_kzg_commitments
+                    .iter()
+                    .map(kzg_commitment_to_versioned_hash)
+                    .collect(),
+                parent_beacon_block_root: block_ref.parent_root,
+                execution_requests: &block_ref.body.execution_requests,
+                il_transactions: vec![].into(),
             })),
         }
     }

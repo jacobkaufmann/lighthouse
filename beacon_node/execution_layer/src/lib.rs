@@ -1384,6 +1384,7 @@ impl<E: EthSpec> ExecutionLayer<E> {
             );
         }
         *self.inner.last_new_payload_errored.write().await = result.is_err();
+        // TODO(focil) write block hash to some store in the case where theres an IL valdation error on newPayloadv5
 
         process_payload_status(block_hash, result, self.log())
             .map_err(Box::new)

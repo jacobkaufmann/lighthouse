@@ -28,6 +28,7 @@ pub use self::committee_cache::{
 };
 pub use crate::beacon_state::balance::Balance;
 pub use crate::beacon_state::exit_cache::ExitCache;
+pub use crate::beacon_state::inclusion_list_cache::InclusionListCache;
 pub use crate::beacon_state::progressive_balances_cache::*;
 pub use crate::beacon_state::slashings_cache::SlashingsCache;
 pub use eth_spec::*;
@@ -38,6 +39,7 @@ pub use milhouse::{interface::Interface, List, Vector};
 mod committee_cache;
 mod balance;
 mod exit_cache;
+mod inclusion_list_cache;
 mod iter;
 mod progressive_balances_cache;
 mod pubkey_cache;

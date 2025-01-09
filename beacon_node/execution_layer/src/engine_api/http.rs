@@ -724,6 +724,8 @@ impl HttpJsonRpc {
         .await
     }
 
+    pub async fn update_payload_with_inclusion_list<E: EthSpec>(&self) {}
+
     pub async fn get_inclusion_list<E: EthSpec>(
         &self,
         parent_hash: Hash256,

@@ -10,7 +10,7 @@ use fork_choice::ForkChoiceStore;
 use proto_array::JustifiedBalances;
 use safe_arith::ArithError;
 use ssz_derive::{Decode, Encode};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use store::{Error as StoreError, HotColdDB, ItemStore};
@@ -140,6 +140,7 @@ pub struct BeaconForkChoiceStore<E: EthSpec, Hot: ItemStore<E>, Cold: ItemStore<
     unrealized_finalized_checkpoint: Checkpoint,
     proposer_boost_root: Hash256,
     equivocating_indices: BTreeSet<u64>,
+    inclusion_list_equivocators: HashMap<(Slot, Hash256), BTreeSet<u64>>,
     _phantom: PhantomData<E>,
 }
 
@@ -189,6 +190,7 @@ where
             unrealized_finalized_checkpoint: finalized_checkpoint,
             proposer_boost_root: Hash256::zero(),
             equivocating_indices: BTreeSet::new(),
+            inclusion_list_equivocators: HashMap::new(),
             _phantom: PhantomData,
         })
     }
@@ -227,6 +229,7 @@ where
             unrealized_finalized_checkpoint: persisted.unrealized_finalized_checkpoint,
             proposer_boost_root: persisted.proposer_boost_root,
             equivocating_indices: persisted.equivocating_indices,
+            inclusion_list_equivocators: HashMap::new(),
             _phantom: PhantomData,
         })
     }
