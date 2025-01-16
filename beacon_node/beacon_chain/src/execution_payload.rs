@@ -200,6 +200,13 @@ async fn notify_new_payload<'a, T: BeaconChainTypes>(
                     // imported to fork choice was the parent.
                     let latest_root = block.parent_root();
 
+                    // If the payload is invalid because it didn't satisfy the inclusion lit
+                    // transactions for this slot, update the fork choice store before processing
+                    // the invalid EL payload.
+                    if *validation_error == Some("INVALID_INCLUSION_LIST".to_string()) {
+                        chain.set_unsatisfied_inclusion_list_block(block.tree_hash_root()).await?;
+                    }
+
                     chain
                         .process_invalid_execution_payload(&InvalidationOperation::InvalidateMany {
                             head_block_root: latest_root,

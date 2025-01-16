@@ -110,6 +110,7 @@ impl ForkChoiceTestDefinition {
                             &justified_balances,
                             Hash256::zero(),
                             &equivocating_indices,
+                            Hash256::zero(),
                             Slot::new(0),
                             &spec,
                         )
@@ -141,6 +142,7 @@ impl ForkChoiceTestDefinition {
                             &justified_balances,
                             proposer_boost_root,
                             &equivocating_indices,
+                            Hash256::zero(),
                             Slot::new(0),
                             &spec,
                         )
@@ -169,6 +171,7 @@ impl ForkChoiceTestDefinition {
                         &justified_balances,
                         Hash256::zero(),
                         &equivocating_indices,
+                        Hash256::zero(),
                         Slot::new(0),
                         &spec,
                     );

@@ -7267,6 +7267,32 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         )
     }
 
+    pub async fn set_unsatisfied_inclusion_list_block(self: &Arc<Self>, block_root: Hash256) -> Result<(), Error> {
+        let chain = self.clone();
+        let fork_choice_result = self
+            .spawn_blocking_handle(
+                move || {
+                    chain
+                        .canonical_head
+                        .fork_choice_write_lock()
+                        .on_invalid_inclusion_list_payload(block_root)
+                },
+                "invalid_inclusion_list_payload",
+            )
+            .await;
+
+        // Update fork choice.
+        if let Err(e) = fork_choice_result {
+            crit!(
+                self.log,
+                "Failed to process invalid inclusion list payload";
+                "error" => ?e,
+            );
+        }
+
+        Ok(())
+    }
+
     pub fn metrics(&self) -> BeaconChainMetrics {
         BeaconChainMetrics {
             reqresp_pre_import_cache_len: self.reqresp_pre_import_cache.read().len(),

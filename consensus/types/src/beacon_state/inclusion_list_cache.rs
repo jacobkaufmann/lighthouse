@@ -46,7 +46,11 @@ impl<E: EthSpec> InclusionListCache<E> {
             return;
         }
 
-        if inner.inclusion_lists_seen.contains(&inclusion_list.message.validator_index) && !inner.inclusion_lists.contains(&inclusion_list) {
+        if inner
+            .inclusion_lists_seen
+            .contains(&inclusion_list.message.validator_index)
+            && !inner.inclusion_lists.contains(&inclusion_list)
+        {
             inner
                 .inclusion_list_equivocators
                 .insert(inclusion_list.message.validator_index);
@@ -54,7 +58,11 @@ impl<E: EthSpec> InclusionListCache<E> {
         }
 
         // Skip inserting into the cache if we've already seen an identical IL
-        if inner.inclusion_lists_seen.contains(&inclusion_list.message.validator_index) && inner.inclusion_lists.contains(&inclusion_list) {
+        if inner
+            .inclusion_lists_seen
+            .contains(&inclusion_list.message.validator_index)
+            && inner.inclusion_lists.contains(&inclusion_list)
+        {
             return;
         }
 
@@ -63,7 +71,9 @@ impl<E: EthSpec> InclusionListCache<E> {
                 .inclusion_list_transactions
                 .insert(transaction.clone());
         }
-        inner.inclusion_lists_seen.insert(inclusion_list.message.validator_index);
+        inner
+            .inclusion_lists_seen
+            .insert(inclusion_list.message.validator_index);
         inner.inclusion_lists.insert(inclusion_list);
     }
 

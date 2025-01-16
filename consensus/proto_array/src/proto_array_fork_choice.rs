@@ -467,6 +467,7 @@ impl ProtoArrayForkChoice {
         justified_state_balances: &JustifiedBalances,
         proposer_boost_root: Hash256,
         equivocating_indices: &BTreeSet<u64>,
+        unsatisfied_inclusion_list_block: Hash256,
         current_slot: Slot,
         spec: &ChainSpec,
     ) -> Result<Hash256, String> {
@@ -489,6 +490,7 @@ impl ProtoArrayForkChoice {
                 finalized_checkpoint,
                 new_balances,
                 proposer_boost_root,
+                unsatisfied_inclusion_list_block,
                 current_slot,
                 spec,
             )
