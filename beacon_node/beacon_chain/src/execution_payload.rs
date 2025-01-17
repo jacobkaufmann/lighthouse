@@ -105,6 +105,7 @@ impl<T: BeaconChainTypes> PayloadNotifier<T> {
 
         let inclusion_list_transactions = chain
             .inclusion_list_cache
+            .read()
             .get_inclusion_list_transactions(block.slot())
             .unwrap_or(vec![].into());
 

@@ -471,7 +471,7 @@ pub struct BeaconChain<T: BeaconChainTypes> {
     /// A cache used when producing attestations whilst the head block is still being imported.
     pub early_attester_cache: EarlyAttesterCache<T::EthSpec>,
     /// A cache used to store verified/equivocating inclusion lists.
-    pub inclusion_list_cache: InclusionListCache<T::EthSpec>,
+    pub inclusion_list_cache: RwLock<InclusionListCache<T::EthSpec>>,
     /// Cache gossip verified blocks to serve over ReqResp before they are imported
     pub reqresp_pre_import_cache: Arc<RwLock<ReqRespPreImportCache<T::EthSpec>>>,
     /// A cache used to keep track of various block timings.
@@ -7291,6 +7291,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         }
 
         Ok(())
+    }
+
+    pub fn on_verified_inclusion_list(&self, signed_il: SignedInclusionList<T::EthSpec>) {
+        self.inclusion_list_cache.write().on_inclusion_list(signed_il);
     }
 
     pub fn metrics(&self) -> BeaconChainMetrics {
