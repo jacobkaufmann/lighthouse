@@ -87,6 +87,7 @@ impl ForkChoiceTestDefinition {
             self.finalized_checkpoint,
             junk_shuffling_id.clone(),
             junk_shuffling_id,
+            Hash256::ZERO,
             ExecutionStatus::Optimistic(ExecutionBlockHash::zero()),
         )
         .expect("should create fork choice struct");
@@ -110,7 +111,6 @@ impl ForkChoiceTestDefinition {
                             &justified_balances,
                             Hash256::zero(),
                             &equivocating_indices,
-                            Hash256::zero(),
                             Slot::new(0),
                             &spec,
                         )
@@ -142,7 +142,6 @@ impl ForkChoiceTestDefinition {
                             &justified_balances,
                             proposer_boost_root,
                             &equivocating_indices,
-                            Hash256::zero(),
                             Slot::new(0),
                             &spec,
                         )
@@ -171,7 +170,6 @@ impl ForkChoiceTestDefinition {
                         &justified_balances,
                         Hash256::zero(),
                         &equivocating_indices,
-                        Hash256::zero(),
                         Slot::new(0),
                         &spec,
                     );

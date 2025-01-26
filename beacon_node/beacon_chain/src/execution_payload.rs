@@ -205,7 +205,9 @@ async fn notify_new_payload<'a, T: BeaconChainTypes>(
                     // transactions for this slot, update the fork choice store before processing
                     // the invalid EL payload.
                     if *validation_error == Some("INVALID_INCLUSION_LIST".to_string()) {
-                        chain.set_unsatisfied_inclusion_list_block(block.tree_hash_root()).await?;
+                        chain
+                            .set_unsatisfied_inclusion_list_block(block.tree_hash_root())
+                            .await?;
                     }
 
                     chain

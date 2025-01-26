@@ -356,8 +356,8 @@ where
         self.unsatisfied_inclusion_list_block = block_root;
     }
 
-    fn unsatisfied_inclusion_list_block(&self) -> Hash256 {
-        self.unsatisfied_inclusion_list_block
+    fn unsatisfied_inclusion_list_block(&self) -> &Hash256 {
+        &self.unsatisfied_inclusion_list_block
     }
 }
 

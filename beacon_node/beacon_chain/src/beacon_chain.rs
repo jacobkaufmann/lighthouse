@@ -7267,7 +7267,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         )
     }
 
-    pub async fn set_unsatisfied_inclusion_list_block(self: &Arc<Self>, block_root: Hash256) -> Result<(), Error> {
+    pub async fn set_unsatisfied_inclusion_list_block(
+        self: &Arc<Self>,
+        block_root: Hash256,
+    ) -> Result<(), Error> {
         let chain = self.clone();
         let fork_choice_result = self
             .spawn_blocking_handle(
@@ -7294,7 +7297,9 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
     }
 
     pub fn on_verified_inclusion_list(&self, signed_il: SignedInclusionList<T::EthSpec>) {
-        self.inclusion_list_cache.write().on_inclusion_list(signed_il);
+        self.inclusion_list_cache
+            .write()
+            .on_inclusion_list(signed_il);
     }
 
     pub fn metrics(&self) -> BeaconChainMetrics {

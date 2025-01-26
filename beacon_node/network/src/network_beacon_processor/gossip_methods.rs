@@ -2178,7 +2178,8 @@ impl<T: BeaconChainTypes> NetworkBeaconProcessor<T> {
                 debug!(self.log, "Successfully verified gossip inclusion list");
                 // Store validated inclusion list in the IL cache. This also catches
                 // equivocating IL's and handles them accordingly.
-                self.chain.on_verified_inclusion_list(gossip_verified_il.signed_il);
+                self.chain
+                    .on_verified_inclusion_list(gossip_verified_il.signed_il);
             }
             Err(err) => match err {
                 GossipInclusionListError::FutureSlot { .. }

@@ -390,6 +390,7 @@ where
             *fc_store.finalized_checkpoint(),
             current_epoch_shuffling_id,
             next_epoch_shuffling_id,
+            *fc_store.unsatisfied_inclusion_list_block(),
             execution_status,
         )?;
 
@@ -489,7 +490,6 @@ where
             store.justified_balances(),
             store.proposer_boost_root(),
             store.equivocating_indices(),
-            store.unsatisfied_inclusion_list_block(),
             current_slot,
             spec,
         )?;
@@ -628,11 +628,9 @@ where
     }
 
     // TODO(focil) add documentation
-     pub fn on_invalid_inclusion_list_payload(
-        &mut self,
-        block_root: Hash256,
-    ) {
-        self.fc_store.set_unsatisfied_inclusion_list_block(block_root);
+    pub fn on_invalid_inclusion_list_payload(&mut self, block_root: Hash256) {
+        self.fc_store
+            .set_unsatisfied_inclusion_list_block(block_root);
     }
 
     /// Add `block` to the fork choice DAG.
