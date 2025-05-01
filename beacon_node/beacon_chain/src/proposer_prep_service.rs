@@ -4,6 +4,7 @@ use std::sync::Arc;
 use task_executor::TaskExecutor;
 use tokio::time::sleep;
 use tracing::{debug, error};
+use types::Slot;
 
 /// Spawns a routine which ensures the EL is provided advance notice of any block producers.
 ///
@@ -29,9 +30,12 @@ async fn proposer_prep_service<T: BeaconChainTypes>(
     executor: TaskExecutor,
     chain: Arc<BeaconChain<T>>,
 ) {
-    let slot_duration = chain.slot_clock.slot_duration();
-
     loop {
+        // TODO
+        let slot = chain.slot_clock.now().unwrap_or(Slot::new(0));
+        let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
+        let slot_duration = chain.slot_clock.slot_duration(epoch);
+
         match chain.slot_clock.duration_to_next_slot() {
             Some(duration) => {
                 let additional_delay =

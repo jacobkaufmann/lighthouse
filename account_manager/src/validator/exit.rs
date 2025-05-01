@@ -11,7 +11,7 @@ use eth2_keystore::Keystore;
 use eth2_network_config::Eth2NetworkConfig;
 use safe_arith::SafeArith;
 use sensitive_url::SensitiveUrl;
-use slot_clock::{SlotClock, SystemTimeSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, SystemTimeSlotClock};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::time::sleep;
@@ -319,9 +319,12 @@ fn get_current_epoch<E: EthSpec>(genesis_time: u64, spec: &ChainSpec) -> Option<
     let slot_clock = SystemTimeSlotClock::new(
         spec.genesis_slot,
         Duration::from_secs(genesis_time),
-        Duration::from_secs(spec.seconds_per_slot),
+        E::slots_per_epoch(),
+        SlotDurationSchedule::from(spec),
     );
-    slot_clock.now().map(|s| s.epoch(E::slots_per_epoch()))
+    slot_clock
+        .now()
+        .map(|s| s.epoch(slot_clock.slots_per_epoch()))
 }
 
 /// Load the voting keypair by loading and decrypting the keystore.

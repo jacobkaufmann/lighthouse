@@ -814,6 +814,7 @@ pub fn get_config<E: EthSpec>(
         client_config.sync_eth1_chain = false;
     }
 
+    // TODO: dynamic look-ahead given dynamic `seconds_per_slot`
     client_config.chain.prepare_payload_lookahead =
         clap_utils::parse_optional(cli_args, "prepare-payload-lookahead")?
             .map(Duration::from_millis)

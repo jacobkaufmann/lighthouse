@@ -9,7 +9,7 @@ use genesis::{generate_deterministic_keypairs, interop_genesis_state, DEFAULT_ET
 use lighthouse_network::NetworkConfig;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
-use slot_clock::{SlotClock, SystemTimeSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, SystemTimeSlotClock};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, SystemTime};
 use store::config::StoreConfig;
@@ -75,7 +75,8 @@ impl TestBeaconChain {
                 .slot_clock(SystemTimeSlotClock::new(
                     Slot::new(0),
                     Duration::from_secs(recent_genesis_time()),
-                    Duration::from_millis(SLOT_DURATION_MILLIS),
+                    MainnetEthSpec::slots_per_epoch(),
+                    SlotDurationSchedule::new(Duration::from_millis(SLOT_DURATION_MILLIS), None),
                 ))
                 .shutdown_sender(shutdown_tx)
                 .rng(Box::new(StdRng::seed_from_u64(42)))

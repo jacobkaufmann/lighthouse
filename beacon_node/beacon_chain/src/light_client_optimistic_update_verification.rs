@@ -4,7 +4,7 @@ use eth2::types::Hash256;
 use slot_clock::SlotClock;
 use std::time::Duration;
 use strum::AsRefStr;
-use types::LightClientOptimisticUpdate;
+use types::{EthSpec, LightClientOptimisticUpdate};
 
 /// Returned when a light client optimistic update was not successfully verified. It might not have been verified for
 /// two reasons:
@@ -50,11 +50,13 @@ impl<T: BeaconChainTypes> VerifiedLightClientOptimisticUpdate<T> {
         seen_timestamp: Duration,
     ) -> Result<Self, Error> {
         // verify that enough time has passed for the block to have been propagated
+        let slot = *rcv_optimistic_update.signature_slot();
+        let epoch = slot.epoch(T::EthSpec::slots_per_epoch());
         let start_time = chain
             .slot_clock
-            .start_of(*rcv_optimistic_update.signature_slot())
+            .start_of(slot)
             .ok_or(Error::SigSlotStartIsNone)?;
-        let one_third_slot_duration = Duration::new(chain.spec.seconds_per_slot / 3, 0);
+        let one_third_slot_duration = Duration::new(chain.spec.seconds_per_slot(epoch) / 3, 0);
         if seen_timestamp + chain.spec.maximum_gossip_clock_disparity()
             < start_time + one_third_slot_duration
         {

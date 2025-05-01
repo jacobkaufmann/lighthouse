@@ -37,7 +37,7 @@ use lighthouse_network::{
     types::SyncState,
     NetworkConfig, NetworkGlobals, PeerId,
 };
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use tokio::sync::mpsc;
 use tracing::info;
 use types::{
@@ -57,17 +57,19 @@ impl TestRig {
     pub fn test_setup() -> Self {
         // Use `fork_from_env` logic to set correct fork epochs
         let spec = test_spec::<E>();
+        let spec = Arc::new(spec);
 
         // Initialise a new beacon chain
         let harness = BeaconChainHarness::<EphemeralHarnessType<E>>::builder(E)
-            .spec(Arc::new(spec))
+            .spec(Arc::clone(&spec))
             .deterministic_keypairs(1)
             .fresh_ephemeral_store()
             .mock_execution_layer()
             .testing_slot_clock(TestingSlotClock::new(
                 Slot::new(0),
                 Duration::from_secs(0),
-                Duration::from_secs(12),
+                E::slots_per_epoch(),
+                SlotDurationSchedule::from(spec.as_ref()),
             ))
             .build();
 

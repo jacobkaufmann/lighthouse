@@ -746,6 +746,7 @@ mod tests {
             .execution_block_generator()
             .move_to_terminal_block()
             .expect("should move to terminal block");
+        // NOTE: it's okay to use `seconds_per_slot` here since we are pre-electra
         let timestamp = harness.get_timestamp_at_slot() + harness.spec.seconds_per_slot;
         harness
             .execution_block_generator()

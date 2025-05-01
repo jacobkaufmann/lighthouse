@@ -724,7 +724,7 @@ mod tests {
     use crate::beacon_node_health::BeaconNodeHealthTier;
     use eth2::SensitiveUrl;
     use eth2::Timeouts;
-    use slot_clock::TestingSlotClock;
+    use slot_clock::{SlotDurationSchedule, TestingSlotClock};
     use strum::VariantNames;
     use types::{BeaconBlockDeneb, MainnetEthSpec, Slot};
     use types::{EmptyBlock, Signature, SignedBeaconBlockDeneb, SignedBlindedBeaconBlock};
@@ -875,12 +875,13 @@ mod tests {
         spec: Arc<ChainSpec>,
     ) -> BeaconNodeFallback<TestingSlotClock, E> {
         let mut beacon_node_fallback =
-            BeaconNodeFallback::new(candidates, Config::default(), topics, spec);
+            BeaconNodeFallback::new(candidates, Config::default(), topics, Arc::clone(&spec));
 
         beacon_node_fallback.set_slot_clock(TestingSlotClock::new(
             Slot::new(1),
             Duration::from_secs(0),
-            Duration::from_secs(12),
+            E::slots_per_epoch(),
+            SlotDurationSchedule::from(spec.as_ref()),
         ));
 
         beacon_node_fallback

@@ -832,8 +832,13 @@ impl<T: BeaconChainTypes> NetworkService<T> {
             self.next_fork_update = Box::pin(next_fork_delay(&self.beacon_chain).into());
 
             // Set the next_unsubscribe delay.
+            let epoch = self
+                .beacon_chain
+                .slot()
+                .unwrap_or(Slot::new(0))
+                .epoch(T::EthSpec::slots_per_epoch());
             let epoch_duration =
-                self.beacon_chain.spec.seconds_per_slot * T::EthSpec::slots_per_epoch();
+                self.beacon_chain.spec.seconds_per_slot(epoch) * T::EthSpec::slots_per_epoch();
             let unsubscribe_delay = Duration::from_secs(UNSUBSCRIBE_DELAY_EPOCHS * epoch_duration);
 
             // Update the `next_fork_subscriptions` timer if the next fork is known.
@@ -884,8 +889,12 @@ fn next_fork_subscriptions_delay<T: BeaconChainTypes>(
     beacon_chain: &BeaconChain<T>,
 ) -> Option<tokio::time::Sleep> {
     if let Some((_, duration_to_fork)) = beacon_chain.duration_to_next_fork() {
+        let epoch = beacon_chain
+            .slot()
+            .unwrap_or(Slot::new(0))
+            .epoch(T::EthSpec::slots_per_epoch());
         let duration_to_subscription = duration_to_fork.saturating_sub(Duration::from_secs(
-            beacon_chain.spec.seconds_per_slot * SUBSCRIBE_DELAY_SLOTS,
+            beacon_chain.spec.seconds_per_slot(epoch) * SUBSCRIBE_DELAY_SLOTS,
         ));
         if !duration_to_subscription.is_zero() {
             return Some(tokio::time::sleep(duration_to_subscription));

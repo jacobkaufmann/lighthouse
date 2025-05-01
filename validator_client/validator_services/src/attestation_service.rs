@@ -128,13 +128,12 @@ impl<T, E: EthSpec> Deref for AttestationService<T, E> {
 
 impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
     /// Starts the service which periodically produces attestations.
-    pub fn start_update_service(self, spec: &ChainSpec) -> Result<(), String> {
+    pub fn start_update_service(self, _spec: &ChainSpec) -> Result<(), String> {
         if self.disable {
             info!("Attestation service disabled");
             return Ok(());
         }
 
-        let slot_duration = Duration::from_secs(spec.seconds_per_slot);
         let duration_to_next_slot = self
             .slot_clock
             .duration_to_next_slot()
@@ -149,6 +148,11 @@ impl<T: SlotClock + 'static, E: EthSpec> AttestationService<T, E> {
 
         let interval_fut = async move {
             loop {
+                // if we cannot read the slot clock, then assume that we are at or before genesis.
+                let slot = self.slot_clock.now().unwrap_or(Slot::new(0));
+                let epoch = slot.epoch(E::slots_per_epoch());
+                let slot_duration = self.slot_clock.slot_duration(epoch);
+
                 if let Some(duration_to_next_slot) = self.slot_clock.duration_to_next_slot() {
                     sleep(duration_to_next_slot + slot_duration / 3).await;
 

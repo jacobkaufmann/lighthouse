@@ -716,9 +716,11 @@ where
             }));
         }
 
+        let block_epoch = block.slot().epoch(E::slots_per_epoch());
+
         // Add proposer score boost if the block is timely.
-        let is_before_attesting_interval =
-            block_delay < Duration::from_secs(spec.seconds_per_slot / INTERVALS_PER_SLOT);
+        let is_before_attesting_interval = block_delay
+            < Duration::from_secs(spec.seconds_per_slot(block_epoch) / INTERVALS_PER_SLOT);
 
         let is_first_block = self.fc_store.proposer_boost_root().is_zero();
         if current_slot == block.slot() && is_before_attesting_interval && is_first_block {
@@ -732,7 +734,6 @@ where
         )?;
 
         // Update unrealized justified/finalized checkpoints.
-        let block_epoch = block.slot().epoch(E::slots_per_epoch());
 
         // If the parent checkpoints are already at the same epoch as the block being imported,
         // it's impossible for the unrealized checkpoints to differ from the parent's. This

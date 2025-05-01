@@ -7,7 +7,7 @@ use slot_clock::SlotClock;
 use std::{fmt::Debug, time::Duration};
 use task_executor::TaskExecutor;
 use tracing::{debug, error, warn};
-use types::{EthSpec, Graffiti, GRAFFITI_BYTES_LEN};
+use types::{Graffiti, GRAFFITI_BYTES_LEN};
 
 const ENGINE_VERSION_AGE_LIMIT_EPOCH_MULTIPLE: u32 = 6; // 6 epochs
 const ENGINE_VERSION_CACHE_REFRESH_EPOCH_MULTIPLE: u32 = 2; // 2 epochs
@@ -51,6 +51,7 @@ impl Debug for GraffitiOrigin {
 pub struct GraffitiCalculator<T: BeaconChainTypes> {
     pub beacon_graffiti: GraffitiOrigin,
     execution_layer: Option<ExecutionLayer<T::EthSpec>>,
+    // TODO: replace w/ dynamic epoch duration
     pub epoch_duration: Duration,
 }
 
@@ -186,7 +187,7 @@ async fn engine_version_cache_refresh_service<T: BeaconChainTypes>(
     let partial_firing_delay =
         epoch_duration * ENGINE_VERSION_CACHE_REFRESH_EPOCH_MULTIPLE.saturating_sub(1);
     loop {
-        match slot_clock.duration_to_next_epoch(T::EthSpec::slots_per_epoch()) {
+        match slot_clock.duration_to_next_epoch() {
             Some(duration_to_next_epoch) => {
                 let firing_delay = partial_firing_delay + duration_to_next_epoch + epoch_delay;
                 tokio::time::sleep(firing_delay).await;
@@ -212,8 +213,13 @@ async fn engine_version_cache_refresh_service<T: BeaconChainTypes>(
             }
             None => {
                 error!("Failed to read slot clock");
+
+                // TODO
+                let slot = slot_clock.now().expect("can read slot clock");
+                let epoch = slot.epoch(slot_clock.slots_per_epoch());
+
                 // If we can't read the slot clock, just wait another slot.
-                tokio::time::sleep(slot_clock.slot_duration()).await;
+                tokio::time::sleep(slot_clock.slot_duration(epoch)).await;
             }
         };
     }

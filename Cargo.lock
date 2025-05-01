@@ -8633,6 +8633,7 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "safe_arith",
+ "slot_clock",
  "smallvec",
  "ssz_types",
  "test_random_derive",

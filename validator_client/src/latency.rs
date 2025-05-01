@@ -29,7 +29,12 @@ pub fn start_latency_service<T: SlotClock + 'static, E: EthSpec>(
                 })
                 // If we can't read the slot clock, just wait one slot. Running
                 // the measurement at a non-exact time is not a big issue.
-                .unwrap_or_else(|| slot_clock.slot_duration());
+                .unwrap_or_else(|| {
+                    // TODO
+                    let slot = slot_clock.now().expect("can read slot clock");
+                    let epoch = slot.epoch(slot_clock.slots_per_epoch());
+                    slot_clock.slot_duration(epoch)
+                });
 
             // Sleep until it's time to perform the measurement.
             sleep(sleep_time).await;

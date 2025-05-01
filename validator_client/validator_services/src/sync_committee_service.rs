@@ -86,13 +86,12 @@ impl<T: SlotClock + 'static, E: EthSpec> SyncCommitteeService<T, E> {
             .unwrap_or(false)
     }
 
-    pub fn start_update_service(self, spec: &ChainSpec) -> Result<(), String> {
+    pub fn start_update_service(self, _spec: &ChainSpec) -> Result<(), String> {
         if self.duties_service.disable_attesting {
             info!("Sync committee service disabled");
             return Ok(());
         }
 
-        let slot_duration = Duration::from_secs(spec.seconds_per_slot);
         let duration_to_next_slot = self
             .slot_clock
             .duration_to_next_slot()
@@ -107,6 +106,11 @@ impl<T: SlotClock + 'static, E: EthSpec> SyncCommitteeService<T, E> {
 
         let interval_fut = async move {
             loop {
+                // if we cannot read the slot clock, then assume that we are at or before genesis.
+                let slot = self.slot_clock.now().unwrap_or(Slot::new(0));
+                let epoch = slot.epoch(E::slots_per_epoch());
+                let slot_duration = self.slot_clock.slot_duration(epoch);
+
                 if let Some(duration_to_next_slot) = self.slot_clock.duration_to_next_slot() {
                     // Wait for contribution broadcast interval 1/3 of the way through the slot.
                     sleep(duration_to_next_slot + slot_duration / 3).await;

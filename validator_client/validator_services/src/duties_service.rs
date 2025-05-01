@@ -367,7 +367,15 @@ pub fn start_update_service<T: SlotClock + 'static, E: EthSpec>(
                 } else {
                     // Just sleep for one slot if we are unable to read the system clock, this gives
                     // us an opportunity for the clock to eventually come good.
-                    sleep(duties_service.slot_clock.slot_duration()).await;
+
+                    // TODO
+                    let slot = duties_service
+                        .slot_clock
+                        .now()
+                        .expect("can read slot clock");
+                    let epoch = slot.epoch(duties_service.slot_clock.slots_per_epoch());
+
+                    sleep(duties_service.slot_clock.slot_duration(epoch)).await;
                 }
             }
         },
@@ -386,7 +394,15 @@ pub fn start_update_service<T: SlotClock + 'static, E: EthSpec>(
                 } else {
                     // Just sleep for one slot if we are unable to read the system clock, this gives
                     // us an opportunity for the clock to eventually come good.
-                    sleep(duties_service.slot_clock.slot_duration()).await;
+
+                    // TODO
+                    let slot = duties_service
+                        .slot_clock
+                        .now()
+                        .expect("can read slot clock");
+                    let epoch = slot.epoch(duties_service.slot_clock.slots_per_epoch());
+
+                    sleep(duties_service.slot_clock.slot_duration(epoch)).await;
                     continue;
                 }
 
@@ -419,7 +435,15 @@ pub fn start_update_service<T: SlotClock + 'static, E: EthSpec>(
                 } else {
                     // Just sleep for one slot if we are unable to read the system clock, this gives
                     // us an opportunity for the clock to eventually come good.
-                    sleep(duties_service.slot_clock.slot_duration()).await;
+
+                    // TODO
+                    let slot = duties_service
+                        .slot_clock
+                        .now()
+                        .expect("can read slot clock");
+                    let epoch = slot.epoch(duties_service.slot_clock.slots_per_epoch());
+
+                    sleep(duties_service.slot_clock.slot_duration(epoch)).await;
                     continue;
                 }
 
@@ -455,7 +479,15 @@ pub fn start_update_service<T: SlotClock + 'static, E: EthSpec>(
                 } else {
                     // Just sleep for one slot if we are unable to read the system clock, this gives
                     // us an opportunity for the clock to eventually come good.
-                    sleep(duties_service.slot_clock.slot_duration()).await;
+
+                    // TODO
+                    let slot = duties_service
+                        .slot_clock
+                        .now()
+                        .expect("can read slot clock");
+                    let epoch = slot.epoch(duties_service.slot_clock.slots_per_epoch());
+
+                    sleep(duties_service.slot_clock.slot_duration(epoch)).await;
                     continue;
                 }
             }
@@ -1038,7 +1070,12 @@ async fn fill_in_selection_proofs<T: SlotClock + 'static, E: EthSpec>(
     // At halfway through each slot when nothing else is likely to be getting signed, sign a batch
     // of selection proofs and insert them into the duties service `attesters` map.
     let slot_clock = &duties_service.slot_clock;
-    let slot_offset = duties_service.slot_clock.slot_duration() / SELECTION_PROOF_SCHEDULE_DENOM;
+
+    // TODO
+    let slot = slot_clock.now().expect("can read slot clock");
+    let epoch = slot.epoch(slot_clock.slots_per_epoch());
+
+    let slot_offset = slot_clock.slot_duration(epoch) / SELECTION_PROOF_SCHEDULE_DENOM;
 
     while !duties_by_slot.is_empty() {
         if let Some(duration) = slot_clock.duration_to_next_slot() {
@@ -1163,7 +1200,15 @@ async fn fill_in_selection_proofs<T: SlotClock + 'static, E: EthSpec>(
         } else {
             // Just sleep for one slot if we are unable to read the system clock, this gives
             // us an opportunity for the clock to eventually come good.
-            sleep(duties_service.slot_clock.slot_duration()).await;
+
+            // TODO
+            let slot = duties_service
+                .slot_clock
+                .now()
+                .expect("can read slot clock");
+            let epoch = slot.epoch(duties_service.slot_clock.slots_per_epoch());
+
+            sleep(duties_service.slot_clock.slot_duration(epoch)).await;
         }
     }
 }

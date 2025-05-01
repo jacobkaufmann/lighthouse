@@ -1,6 +1,6 @@
-use super::{ManualSlotClock, SlotClock};
+use super::{ManualSlotClock, SlotClock, SlotDurationSchedule};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use types::Slot;
+use types::{Epoch, Slot};
 
 /// Determines the present slot based upon the present system time.
 #[derive(Clone)]
@@ -9,9 +9,19 @@ pub struct SystemTimeSlotClock {
 }
 
 impl SlotClock for SystemTimeSlotClock {
-    fn new(genesis_slot: Slot, genesis_duration: Duration, slot_duration: Duration) -> Self {
+    fn new(
+        genesis_slot: Slot,
+        genesis_duration: Duration,
+        slots_per_epoch: u64,
+        slot_duration_schedule: SlotDurationSchedule,
+    ) -> Self {
         Self {
-            clock: ManualSlotClock::new(genesis_slot, genesis_duration, slot_duration),
+            clock: ManualSlotClock::new(
+                genesis_slot,
+                genesis_duration,
+                slots_per_epoch,
+                slot_duration_schedule,
+            ),
         }
     }
 
@@ -38,13 +48,21 @@ impl SlotClock for SystemTimeSlotClock {
         self.clock.duration_to_next_slot_from(now)
     }
 
-    fn duration_to_next_epoch(&self, slots_per_epoch: u64) -> Option<Duration> {
+    fn duration_to_next_epoch(&self) -> Option<Duration> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?;
-        self.clock.duration_to_next_epoch_from(now, slots_per_epoch)
+        self.clock.duration_to_next_epoch_from(now)
     }
 
-    fn slot_duration(&self) -> Duration {
-        self.clock.slot_duration()
+    fn slot_duration(&self, epoch: Epoch) -> Duration {
+        self.clock.slot_duration(epoch)
+    }
+
+    fn slot_duration_schedule(&self) -> SlotDurationSchedule {
+        self.clock.slot_duration_schedule()
+    }
+
+    fn slots_per_epoch(&self) -> u64 {
+        self.clock.slots_per_epoch()
     }
 
     fn duration_to_slot(&self, slot: Slot) -> Option<Duration> {
@@ -69,6 +87,8 @@ impl SlotClock for SystemTimeSlotClock {
 mod tests {
     use super::*;
 
+    const SLOTS_PER_EPOCH: u64 = 32;
+
     /*
      * Note: these tests are using actual system times and could fail if they are executed on a
      * very slow machine.
@@ -84,21 +104,37 @@ mod tests {
                 - Duration::from_millis(milliseconds_prior)
         };
 
-        let clock =
-            SystemTimeSlotClock::new(genesis_slot, prior_genesis(0), Duration::from_secs(1));
+        let clock = SystemTimeSlotClock::new(
+            genesis_slot,
+            prior_genesis(0),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(1), None),
+        );
         assert_eq!(clock.now(), Some(Slot::new(0)));
 
-        let clock =
-            SystemTimeSlotClock::new(genesis_slot, prior_genesis(5_000), Duration::from_secs(1));
+        let clock = SystemTimeSlotClock::new(
+            genesis_slot,
+            prior_genesis(5_000),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(1), None),
+        );
         assert_eq!(clock.now(), Some(Slot::new(5)));
 
-        let clock =
-            SystemTimeSlotClock::new(genesis_slot, prior_genesis(500), Duration::from_secs(1));
+        let clock = SystemTimeSlotClock::new(
+            genesis_slot,
+            prior_genesis(500),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(1), None),
+        );
         assert_eq!(clock.now(), Some(Slot::new(0)));
         assert!(clock.duration_to_next_slot().unwrap() <= Duration::from_millis(500));
 
-        let clock =
-            SystemTimeSlotClock::new(genesis_slot, prior_genesis(1_500), Duration::from_secs(1));
+        let clock = SystemTimeSlotClock::new(
+            genesis_slot,
+            prior_genesis(1_500),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(1), None),
+        );
         assert_eq!(clock.now(), Some(Slot::new(1)));
         assert!(clock.duration_to_next_slot().unwrap() <= Duration::from_millis(500));
     }
@@ -106,7 +142,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn zero_seconds() {
-        SystemTimeSlotClock::new(Slot::new(0), Duration::from_secs(0), Duration::from_secs(0));
+        SystemTimeSlotClock::new(
+            Slot::new(0),
+            Duration::from_secs(0),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(0), None),
+        );
     }
 
     #[test]
@@ -115,7 +156,8 @@ mod tests {
         SystemTimeSlotClock::new(
             Slot::new(0),
             Duration::from_secs(0),
-            Duration::from_millis(0),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_secs(0), None),
         );
     }
 
@@ -125,7 +167,8 @@ mod tests {
         SystemTimeSlotClock::new(
             Slot::new(0),
             Duration::from_secs(0),
-            Duration::from_nanos(999),
+            SLOTS_PER_EPOCH,
+            SlotDurationSchedule::new(Duration::from_nanos(999), None),
         );
     }
 }

@@ -174,6 +174,8 @@ async fn base_altair_bellatrix_with_terminal_block_after_fork() {
         .unwrap();
 
     // Add a slot duration to get to the next slot
+    //
+    // NOTE: it's okay to use `seconds_per_slot` here since we are pre-electra
     let timestamp = harness.get_timestamp_at_slot() + harness.spec.seconds_per_slot;
 
     harness

@@ -61,8 +61,9 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
     pub fn is_time_to_prepare_for_capella(&self, current_slot: Slot) -> bool {
         if let Some(capella_epoch) = self.spec.capella_fork_epoch {
             let capella_slot = capella_epoch.start_slot(T::EthSpec::slots_per_epoch());
+            let current_epoch = current_slot.epoch(T::EthSpec::slots_per_epoch());
             let capella_readiness_preparation_slots =
-                CAPELLA_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot;
+                CAPELLA_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot(current_epoch);
             // Return `true` if Capella has happened or is within the preparation time.
             current_slot + capella_readiness_preparation_slots > capella_slot
         } else {

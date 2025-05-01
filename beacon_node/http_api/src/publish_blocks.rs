@@ -753,7 +753,9 @@ fn late_block_logging<T: BeaconChainTypes, P: AbstractExecPayload<T::EthSpec>>(
     //
     // Check to see the thresholds are non-zero to avoid logging errors with small
     // slot times (e.g., during testing)
-    let too_late_threshold = chain.slot_clock.unagg_attestation_production_delay();
+    let too_late_threshold = chain
+        .slot_clock
+        .unagg_attestation_production_delay(block.slot().epoch(T::EthSpec::slots_per_epoch()));
     let delayed_threshold = too_late_threshold / 2;
     if delay >= too_late_threshold {
         error!(

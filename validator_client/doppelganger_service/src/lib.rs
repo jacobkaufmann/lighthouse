@@ -315,7 +315,9 @@ impl DoppelgangerService {
         context.executor.spawn(
             async move {
                 loop {
-                    let slot_duration = slot_clock.slot_duration();
+                    let slot = slot_clock.now().expect("can read slot clock");
+                    let epoch = slot.epoch(slot_clock.slots_per_epoch());
+                    let slot_duration = slot_clock.slot_duration(epoch);
 
                     if let Some(duration_to_next_slot) = slot_clock.duration_to_next_slot() {
                         // Run the doppelganger protection check 75% through each epoch. This
@@ -383,12 +385,14 @@ impl DoppelgangerService {
         validator: PublicKeyBytes,
         slot_clock: &T,
     ) -> Result<(), String> {
-        let current_epoch = slot_clock
+        let current_slot = slot_clock
             // If registering before genesis, use the genesis slot.
             .now_or_genesis()
-            .ok_or_else(|| "Unable to read slot clock when registering validator".to_string())?
-            .epoch(E::slots_per_epoch());
-        let genesis_epoch = slot_clock.genesis_slot().epoch(E::slots_per_epoch());
+            .ok_or_else(|| "Unable to read slot clock when registering validator".to_string())?;
+        let current_epoch = current_slot.epoch(slot_clock.slots_per_epoch());
+        let genesis_epoch = slot_clock
+            .genesis_slot()
+            .epoch(slot_clock.slots_per_epoch());
 
         let remaining_epochs = if current_epoch <= genesis_epoch {
             // Disable doppelganger protection when the validator was initialized before genesis.
@@ -666,7 +670,7 @@ impl DoppelgangerService {
 mod test {
     use super::*;
     use futures::executor::block_on;
-    use slot_clock::TestingSlotClock;
+    use slot_clock::{SlotDurationSchedule, TestingSlotClock};
     use std::future;
     use std::time::Duration;
     use types::{
@@ -678,6 +682,9 @@ mod test {
 
     const GENESIS_TIME: Duration = Duration::from_secs(42);
     const SLOT_DURATION: Duration = Duration::from_secs(1);
+
+    const SLOT_DURATION_SCHEDULE: SlotDurationSchedule =
+        SlotDurationSchedule::new(SLOT_DURATION, None);
 
     type E = MainnetEthSpec;
 
@@ -708,7 +715,12 @@ mod test {
     impl TestBuilder {
         fn build(self) -> TestScenario {
             let mut rng = XorShiftRng::from_seed([42; 16]);
-            let slot_clock = TestingSlotClock::new(Slot::new(0), GENESIS_TIME, SLOT_DURATION);
+            let slot_clock = TestingSlotClock::new(
+                Slot::new(0),
+                GENESIS_TIME,
+                E::slots_per_epoch(),
+                SLOT_DURATION_SCHEDULE,
+            );
 
             TestScenario {
                 validators: (0..self.validator_count)

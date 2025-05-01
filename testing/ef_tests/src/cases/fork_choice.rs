@@ -417,8 +417,24 @@ impl<E: EthSpec> Tester<E> {
         let since_genesis = tick
             .checked_sub(genesis_time)
             .ok_or_else(|| Error::FailedToParseTest("tick is prior to genesis".into()))?;
-        let slots_since_genesis = since_genesis / self.spec.seconds_per_slot;
-        Ok(self.spec.genesis_slot + slots_since_genesis)
+
+        let electra_start_slot = self
+            .spec
+            .electra_fork_epoch
+            .map(|e| e.start_slot(E::slots_per_epoch()).as_u64());
+        let electra_time = electra_start_slot.map(|s| {
+            genesis_time
+                + (s - self.harness.chain.slot_clock.genesis_slot().as_u64())
+                    * self.spec.seconds_per_slot
+        });
+        let since_electra = electra_time
+            .map(|electra| tick.saturating_sub(electra))
+            .unwrap_or(0);
+
+        let slots_since_electra = since_electra / self.spec.seconds_per_slot_electra;
+        let slots_before_electra = (since_genesis - since_electra) / self.spec.seconds_per_slot;
+
+        Ok(self.spec.genesis_slot + slots_before_electra + slots_since_electra)
     }
 
     fn block_on_dangerous<F: Future>(&self, future: F) -> Result<F::Output, Error> {

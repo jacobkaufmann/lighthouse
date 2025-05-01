@@ -24,6 +24,7 @@ metrics = { workspace = true }
 rand = { workspace = true }
 rayon = { workspace = true }
 safe_arith = { workspace = true }
+slot_clock = { workspace = true }
 smallvec = { workspace = true }
 ssz_types = { workspace = true }
 test_random_derive = { path = "../../common/test_random_derive" }

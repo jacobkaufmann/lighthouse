@@ -58,9 +58,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
     /// occur within `FULU_READINESS_PREPARATION_SECONDS`
     pub fn is_time_to_prepare_for_fulu(&self, current_slot: Slot) -> bool {
         if let Some(fulu_epoch) = self.spec.fulu_fork_epoch {
+            let current_epoch = current_slot.epoch(T::EthSpec::slots_per_epoch());
             let fulu_slot = fulu_epoch.start_slot(T::EthSpec::slots_per_epoch());
             let fulu_readiness_preparation_slots =
-                FULU_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot;
+                FULU_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot(current_epoch);
             // Return `true` if Fulu has happened or is within the preparation time.
             current_slot + fulu_readiness_preparation_slots > fulu_slot
         } else {

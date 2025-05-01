@@ -59,9 +59,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
     /// occur within `ELECTRA_READINESS_PREPARATION_SECONDS`
     pub fn is_time_to_prepare_for_electra(&self, current_slot: Slot) -> bool {
         if let Some(electra_epoch) = self.spec.electra_fork_epoch {
+            let current_epoch = current_slot.epoch(T::EthSpec::slots_per_epoch());
             let electra_slot = electra_epoch.start_slot(T::EthSpec::slots_per_epoch());
             let electra_readiness_preparation_slots =
-                ELECTRA_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot;
+                ELECTRA_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot(current_epoch);
             // Return `true` if Electra has happened or is within the preparation time.
             current_slot + electra_readiness_preparation_slots > electra_slot
         } else {

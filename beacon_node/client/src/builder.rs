@@ -12,7 +12,7 @@ use beacon_chain::schema_change::migrate_schema;
 use beacon_chain::{
     builder::{BeaconChainBuilder, Witness},
     eth1_chain::{CachingEth1Backend, Eth1Chain},
-    slot_clock::{SlotClock, SystemTimeSlotClock},
+    slot_clock::{SlotClock, SlotDurationSchedule, SystemTimeSlotClock},
     state_advance_timer::spawn_state_advance_timer,
     store::{HotColdDB, ItemStore, StoreConfig},
     BeaconChain, BeaconChainTypes, Eth1ChainBackend, MigratorConfig, ServerSentEventHandler,
@@ -310,6 +310,8 @@ where
                             .map_err(|e| format!("Unable to read system time: {e:}"))?
                             .as_secs();
                         let genesis_time = genesis_state.genesis_time();
+                        // NOTE: it's okay to use `seconds_per_slot` here since it does not change
+                        // until the Electra fork, which is after Deneb
                         let deneb_time =
                             genesis_time + (deneb_fork_epoch.as_u64() * spec.seconds_per_slot);
 
@@ -319,6 +321,7 @@ where
                         let reduced_p2p_availability_epochs = spec
                             .min_epochs_for_blob_sidecars_requests
                             .saturating_sub(BLOB_AVAILABILITY_REDUCTION_EPOCHS);
+                        // TODO: `seconds_per_slot` is not fixed
                         let blob_availability_window = reduced_p2p_availability_epochs
                             * E::slots_per_epoch()
                             * spec.seconds_per_slot;
@@ -729,19 +732,9 @@ where
             .network_globals
             .clone()
             .ok_or("slot_notifier requires a libp2p network")?;
-        let seconds_per_slot = self
-            .chain_spec
-            .as_ref()
-            .ok_or("slot_notifier requires a chain spec")?
-            .seconds_per_slot;
 
-        spawn_notifier(
-            context.executor,
-            beacon_chain,
-            network_globals,
-            seconds_per_slot,
-        )
-        .map_err(|e| format!("Unable to start slot notifier: {}", e))?;
+        spawn_notifier(context.executor, beacon_chain, network_globals)
+            .map_err(|e| format!("Unable to start slot notifier: {}", e))?;
 
         Ok(self)
     }
@@ -1160,10 +1153,12 @@ where
             .clone()
             .ok_or("system_time_slot_clock requires a chain spec")?;
 
+        let slot_duration_schedule = SlotDurationSchedule::from(spec.as_ref());
         let slot_clock = SystemTimeSlotClock::new(
             spec.genesis_slot,
             Duration::from_secs(genesis_time),
-            Duration::from_secs(spec.seconds_per_slot),
+            E::slots_per_epoch(),
+            slot_duration_schedule,
         );
 
         self.slot_clock = Some(slot_clock);

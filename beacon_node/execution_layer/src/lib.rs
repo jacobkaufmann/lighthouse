@@ -673,7 +673,9 @@ impl<E: EthSpec> ExecutionLayer<E> {
                     |el| async move { el.watchdog_task().await },
                     "exec_watchdog_task",
                 );
-                sleep(slot_clock.slot_duration()).await;
+                let slot = slot_clock.now().expect("can read slot clock");
+                let epoch = slot.epoch(slot_clock.slots_per_epoch());
+                sleep(slot_clock.slot_duration(epoch)).await;
             }
         };
 
@@ -690,15 +692,13 @@ impl<E: EthSpec> ExecutionLayer<E> {
         let preparation_cleaner = |el: ExecutionLayer<E>| async move {
             // Start the loop to periodically clean proposer preparation cache.
             loop {
-                if let Some(duration_to_next_epoch) =
-                    slot_clock.duration_to_next_epoch(E::slots_per_epoch())
-                {
+                if let Some(duration_to_next_epoch) = slot_clock.duration_to_next_epoch() {
                     // Wait for next epoch
                     sleep(duration_to_next_epoch).await;
 
                     match slot_clock
                         .now()
-                        .map(|slot| slot.epoch(E::slots_per_epoch()))
+                        .map(|slot| slot.epoch(slot_clock.slots_per_epoch()))
                     {
                         Some(current_epoch) => el
                             .clean_proposer_caches(current_epoch)
@@ -715,7 +715,13 @@ impl<E: EthSpec> ExecutionLayer<E> {
                 } else {
                     error!("Failed to read slot clock");
                     // If we can't read the slot clock, just wait another slot and retry.
-                    sleep(slot_clock.slot_duration()).await;
+
+                    // TODO: given that we need to read the slot clock to retrieve the slot
+                    // duration, we ought to use some default duration
+                    let slot = slot_clock.now().expect("can read slot clock");
+                    let epoch = slot.epoch(slot_clock.slots_per_epoch());
+
+                    sleep(slot_clock.slot_duration(epoch)).await;
                 }
             }
         };

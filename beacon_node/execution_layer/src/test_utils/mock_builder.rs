@@ -13,6 +13,7 @@ use eth2::{
 use fork_choice::ForkchoiceUpdateParameters;
 use parking_lot::RwLock;
 use sensitive_url::SensitiveUrl;
+use slot_clock::SlotDurationSchedule;
 use ssz::Encode;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -795,7 +796,6 @@ impl<E: EthSpec> MockBuilder<E> {
                     (DEFAULT_FEE_RECIPIENT, DEFAULT_GAS_LIMIT)
                 }
             };
-        let slots_since_genesis = slot.as_u64() - self.spec.genesis_slot.as_u64();
 
         let genesis_time = if let Some(genesis_time) = self.genesis_time {
             genesis_time
@@ -807,7 +807,12 @@ impl<E: EthSpec> MockBuilder<E> {
                 .data
                 .genesis_time
         };
-        let timestamp = (slots_since_genesis * self.spec.seconds_per_slot) + genesis_time;
+        let slot_duration_schedule = SlotDurationSchedule::from(self.spec.as_ref());
+        let timestamp = genesis_time
+            + slot_duration_schedule
+                .duration_from_genesis_to_slot(self.spec.genesis_slot, E::slots_per_epoch(), slot)
+                .expect("post-genesis slot")
+                .as_secs();
 
         let head_state: BeaconState<E> = self
             .beacon_client

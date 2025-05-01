@@ -193,6 +193,11 @@ pub struct ChainSpec {
     pub max_per_epoch_activation_exit_churn_limit: u64,
 
     /*
+     * Time Electra
+     */
+    pub seconds_per_slot_electra: u64,
+
+    /*
      * Fulu hard fork params
      */
     pub fulu_fork_version: [u8; 4],
@@ -669,6 +674,20 @@ impl ChainSpec {
         }
     }
 
+    /// Return the value of `SECONDS_PER_SLOT` appropriate for the fork at `epoch`.
+    pub fn seconds_per_slot(&self, epoch: Epoch) -> u64 {
+        self.seconds_per_slot_by_fork(self.fork_name_at_epoch(epoch))
+    }
+
+    /// Return the value of `SECONDS_PER_SLOT` appropriate for `fork`.
+    pub fn seconds_per_slot_by_fork(&self, fork_name: ForkName) -> u64 {
+        if fork_name.electra_enabled() {
+            self.seconds_per_slot_electra
+        } else {
+            self.seconds_per_slot
+        }
+    }
+
     /// Returns the `BLOB_SIDECAR_SUBNET_COUNT` at the given fork_name.
     pub fn blob_sidecar_subnet_count(&self, fork_name: ForkName) -> u64 {
         if fork_name.electra_enabled() {
@@ -945,6 +964,11 @@ impl ChainSpec {
             .expect("calculation does not overflow"),
 
             /*
+             * Time Electra
+             */
+            seconds_per_slot_electra: 8,
+
+            /*
              * Fulu hard fork params
              */
             fulu_fork_version: [0x06, 0x00, 0x00, 0x00],
@@ -1073,6 +1097,8 @@ impl ChainSpec {
                 u64::checked_pow(2, 7)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
+            // Time Electra
+            seconds_per_slot_electra: 6,
             // Fulu
             fulu_fork_version: [0x06, 0x00, 0x00, 0x01],
             fulu_fork_epoch: None,
@@ -1277,6 +1303,11 @@ impl ChainSpec {
                 u64::checked_pow(2, 6)?.checked_mul(u64::checked_pow(10, 9)?)
             })
             .expect("calculation does not overflow"),
+
+            /*
+             * Time Electra
+             */
+            seconds_per_slot_electra: 5,
 
             /*
              * Fulu hard fork params
@@ -1541,6 +1572,9 @@ pub struct Config {
     #[serde(default = "default_max_request_blob_sidecars_electra")]
     #[serde(with = "serde_utils::quoted_u64")]
     max_request_blob_sidecars_electra: u64,
+
+    #[serde(with = "serde_utils::quoted_u64")]
+    seconds_per_slot_electra: u64,
 
     #[serde(default = "default_number_of_columns")]
     #[serde(with = "serde_utils::quoted_u64")]
@@ -1923,6 +1957,8 @@ impl Config {
             blob_sidecar_subnet_count_electra: spec.blob_sidecar_subnet_count_electra,
             max_request_blob_sidecars_electra: spec.max_request_blob_sidecars_electra,
 
+            seconds_per_slot_electra: spec.seconds_per_slot_electra,
+
             number_of_columns: spec.number_of_columns,
             number_of_custody_groups: spec.number_of_custody_groups,
             data_column_sidecar_subnet_count: spec.data_column_sidecar_subnet_count,
@@ -2002,6 +2038,9 @@ impl Config {
             max_blobs_per_block_electra,
             blob_sidecar_subnet_count_electra,
             max_request_blob_sidecars_electra,
+
+            seconds_per_slot_electra,
+
             number_of_columns,
             number_of_custody_groups,
             data_column_sidecar_subnet_count,
@@ -2074,6 +2113,8 @@ impl Config {
             max_blobs_per_block_electra,
             max_request_blob_sidecars_electra,
             blob_sidecar_subnet_count_electra,
+
+            seconds_per_slot_electra,
 
             // We need to re-derive any values that might have changed in the config.
             max_blocks_by_root_request: max_blocks_by_root_request_common(max_request_blocks),

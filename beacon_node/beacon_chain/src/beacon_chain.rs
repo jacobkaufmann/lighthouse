@@ -4343,9 +4343,13 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         let block_delay_total =
             get_slot_delay_ms(block_time_imported, block.slot(), &self.slot_clock);
 
+        let block_slot_duration = self
+            .slot_clock
+            .slot_duration(block.slot().epoch(self.slot_clock.slots_per_epoch()));
+
         // Do not write to the cache for blocks older than 2 epochs, this helps reduce writes to
         // the cache during sync.
-        if block_delay_total < self.slot_clock.slot_duration() * 64 {
+        if block_delay_total < block_slot_duration * 64 {
             // Store the timestamp of the block being imported into the cache.
             self.block_times_cache.write().set_time_imported(
                 block_root,
@@ -4366,9 +4370,7 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
 
         // Do not trigger light_client server update producer for old blocks, to extra work
         // during sync.
-        if self.config.enable_light_client_server
-            && block_delay_total < self.slot_clock.slot_duration() * 32
-        {
+        if self.config.enable_light_client_server && block_delay_total < block_slot_duration * 32 {
             if let Some(mut light_client_server_tx) = self.light_client_server_tx.clone() {
                 if let Ok(sync_aggregate) = block.body().sync_aggregate() {
                     if let Err(e) = light_client_server_tx.try_send((
@@ -4664,7 +4666,9 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         // 1. It seems we have time to propagate and still receive the proposer boost.
         // 2. The current head block was seen late.
         // 3. The `get_proposer_head` conditions from fork choice pass.
-        let proposing_on_time = slot_delay < self.config.re_org_cutoff(self.spec.seconds_per_slot);
+        let epoch = slot.epoch(T::EthSpec::slots_per_epoch());
+        let proposing_on_time =
+            slot_delay < self.config.re_org_cutoff(self.spec.seconds_per_slot(epoch));
         if !proposing_on_time {
             debug!(reason = "not proposing on time", "Not attempting re-org");
             return None;
@@ -4955,12 +4959,13 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
         let current_slot_ok = if head_slot == fork_choice_slot {
             true
         } else if re_org_block_slot == fork_choice_slot {
+            let epoch = re_org_block_slot.epoch(T::EthSpec::slots_per_epoch());
             self.slot_clock
                 .start_of(re_org_block_slot)
                 .and_then(|slot_start| {
                     let now = self.slot_clock.now_duration()?;
                     let slot_delay = now.saturating_sub(slot_start);
-                    Some(slot_delay <= self.config.re_org_cutoff(self.spec.seconds_per_slot))
+                    Some(slot_delay <= self.config.re_org_cutoff(self.spec.seconds_per_slot(epoch)))
                 })
                 .unwrap_or(false)
         } else {
@@ -5066,9 +5071,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
                 .start_of(slot)
                 .unwrap_or_else(|| Duration::from_secs(0)),
         );
+        let epoch = slot.epoch(self.slot_clock.slots_per_epoch());
         block_delays
             .observed
-            .is_some_and(|delay| delay >= self.slot_clock.unagg_attestation_production_delay())
+            .is_some_and(|delay| delay >= self.slot_clock.unagg_attestation_production_delay(epoch))
     }
 
     /// Produce a block for some `slot` upon the given `state`.
@@ -6062,11 +6068,13 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
                 None
             };
 
+            let timestamp = self
+                .slot_clock
+                .start_of(prepare_slot)
+                .ok_or(Error::InvalidSlot(prepare_slot))?
+                .as_secs();
             let payload_attributes = PayloadAttributes::new(
-                self.slot_clock
-                    .start_of(prepare_slot)
-                    .ok_or(Error::InvalidSlot(prepare_slot))?
-                    .as_secs(),
+                timestamp,
                 pre_payload_attributes.prev_randao,
                 execution_layer.get_suggested_fee_recipient(proposer).await,
                 withdrawals.map(Into::into),
@@ -6086,6 +6094,7 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
             // this slot.
             info!(
                 %prepare_slot,
+                %timestamp,
                 validator = proposer,
                 parent_root = ?head_root,
                 "Prepared beacon proposer"

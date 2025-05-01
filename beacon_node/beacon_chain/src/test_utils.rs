@@ -44,7 +44,7 @@ use rand::Rng;
 use rand::SeedableRng;
 use rayon::prelude::*;
 use sensitive_url::SensitiveUrl;
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use state_processing::per_block_processing::compute_timestamp_at_slot;
 use state_processing::state_advance::complete_state_advance;
 use std::borrow::Cow;
@@ -511,9 +511,16 @@ where
             spec.electra_fork_epoch.map(|epoch| {
                 genesis_time + spec.seconds_per_slot * E::slots_per_epoch() * epoch.as_u64()
             });
-        mock.server.execution_block_generator().osaka_time = spec.fulu_fork_epoch.map(|epoch| {
-            genesis_time + spec.seconds_per_slot * E::slots_per_epoch() * epoch.as_u64()
-        });
+        mock.server.execution_block_generator().osaka_time = spec
+            .electra_fork_epoch
+            .zip(spec.fulu_fork_epoch)
+            .map(|(electra, fulu)| {
+                genesis_time
+                    + (spec.seconds_per_slot * E::slots_per_epoch() * electra.as_u64())
+                    + (spec.seconds_per_slot_electra
+                        * E::slots_per_epoch()
+                        * (fulu - electra).as_u64())
+            });
 
         self
     }
@@ -561,7 +568,6 @@ where
         let (shutdown_tx, shutdown_receiver) = futures::channel::mpsc::channel(1);
 
         let spec = self.spec.expect("cannot build without spec");
-        let seconds_per_slot = spec.seconds_per_slot;
         let validator_keypairs = self
             .validator_keypairs
             .expect("cannot build without validator keypairs");
@@ -607,7 +613,7 @@ where
             builder.slot_clock(testing_slot_clock)
         } else if builder.get_slot_clock().is_none() {
             builder
-                .testing_slot_clock(Duration::from_secs(seconds_per_slot))
+                .testing_slot_clock(SlotDurationSchedule::from(spec.as_ref()))
                 .expect("should configure testing slot clock")
         } else {
             builder
@@ -649,9 +655,14 @@ pub fn mock_execution_layer_from_parts<E: EthSpec>(
     let prague_time = spec.electra_fork_epoch.map(|epoch| {
         HARNESS_GENESIS_TIME + spec.seconds_per_slot * E::slots_per_epoch() * epoch.as_u64()
     });
-    let osaka_time = spec.fulu_fork_epoch.map(|epoch| {
-        HARNESS_GENESIS_TIME + spec.seconds_per_slot * E::slots_per_epoch() * epoch.as_u64()
-    });
+    let osaka_time = spec
+        .electra_fork_epoch
+        .zip(spec.fulu_fork_epoch)
+        .map(|(electra, fulu)| {
+            HARNESS_GENESIS_TIME
+                + (spec.seconds_per_slot * E::slots_per_epoch() * electra.as_u64())
+                + (spec.seconds_per_slot_electra * E::slots_per_epoch() * (fulu - electra).as_u64())
+        });
 
     let kzg = get_kzg(&spec);
 

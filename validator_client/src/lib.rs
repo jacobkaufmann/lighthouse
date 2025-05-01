@@ -24,6 +24,7 @@ use notifier::spawn_notifier;
 use parking_lot::RwLock;
 use reqwest::Certificate;
 use slot_clock::SlotClock;
+use slot_clock::SlotDurationSchedule;
 use slot_clock::SystemTimeSlotClock;
 use std::fs::File;
 use std::io::Read;
@@ -269,7 +270,10 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
         let beacon_node_setup = |x: (usize, &SensitiveUrl)| {
             let i = x.0;
             let url = x.1;
-            let slot_duration = Duration::from_secs(context.eth2_config.spec.seconds_per_slot);
+
+            // NOTE: be more aggressive here by setting timeout to electra slot duration
+            let slot_duration =
+                Duration::from_secs(context.eth2_config.spec.seconds_per_slot_electra);
 
             let mut beacon_node_http_client_builder = ClientBuilder::new();
 
@@ -392,10 +396,12 @@ impl<E: EthSpec> ProductionValidatorClient<E> {
             ctx.shared.write().genesis_time = Some(genesis_time);
         }
 
+        let slot_duration_schedule = SlotDurationSchedule::from(context.eth2_config.spec.as_ref());
         let slot_clock = SystemTimeSlotClock::new(
             context.eth2_config.spec.genesis_slot,
             Duration::from_secs(genesis_time),
-            Duration::from_secs(context.eth2_config.spec.seconds_per_slot),
+            E::slots_per_epoch(),
+            slot_duration_schedule,
         );
 
         beacon_nodes.set_slot_clock(slot_clock.clone());

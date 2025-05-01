@@ -1290,6 +1290,7 @@ fn observe_head_block_delays<E: EthSpec, S: SlotClock>(
     let block_time_set_as_head = timestamp_now();
     let head_block_root = head_block.root;
     let head_block_slot = head_block.slot;
+    let head_block_epoch = head_block_slot.epoch(slot_clock.slots_per_epoch());
     let head_block_is_optimistic = head_block.execution_status.is_optimistic_or_invalid();
 
     // Calculate the total delay between the start of the slot and when it was set as head.
@@ -1297,7 +1298,7 @@ fn observe_head_block_delays<E: EthSpec, S: SlotClock>(
 
     // Do not write to the cache for blocks older than 2 epochs, this helps reduce writes to
     // the cache during sync.
-    if block_delay_total < slot_clock.slot_duration() * 64 {
+    if block_delay_total < slot_clock.slot_duration(head_block_epoch) * 64 {
         block_times_cache.set_time_set_as_head(
             head_block_root,
             head_block_slot,
@@ -1306,11 +1307,12 @@ fn observe_head_block_delays<E: EthSpec, S: SlotClock>(
     }
 
     // If a block comes in from over 4 slots ago, it is most likely a block from sync.
-    let block_from_sync = block_delay_total > slot_clock.slot_duration() * 4;
+    let block_from_sync = block_delay_total > slot_clock.slot_duration(head_block_epoch) * 4;
 
     // Determine whether the block has been set as head too late for proper attestation
     // production.
-    let late_head = block_delay_total >= slot_clock.unagg_attestation_production_delay();
+    let late_head =
+        block_delay_total >= slot_clock.unagg_attestation_production_delay(head_block_epoch);
 
     // Do not store metrics if the block was > 4 slots old, this helps prevent noise during
     // sync.

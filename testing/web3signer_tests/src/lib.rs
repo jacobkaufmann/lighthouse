@@ -29,7 +29,7 @@ mod tests {
     use reqwest::Client;
     use serde::Serialize;
     use slashing_protection::{SlashingDatabase, SLASHING_PROTECTION_FILENAME};
-    use slot_clock::{SlotClock, TestingSlotClock};
+    use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
     use std::env;
     use std::fmt::Debug;
     use std::fs::{self, File};
@@ -350,8 +350,14 @@ mod tests {
                 .register_validators(voting_pubkeys.iter().copied())
                 .unwrap();
 
-            let slot_clock =
-                TestingSlotClock::new(Slot::new(0), Duration::from_secs(0), Duration::from_secs(1));
+            let slots_per_epoch = 32;
+            let slot_duration_schedule = SlotDurationSchedule::new(Duration::from_secs(1), None);
+            let slot_clock = TestingSlotClock::new(
+                Slot::new(0),
+                Duration::from_secs(0),
+                slots_per_epoch,
+                slot_duration_schedule,
+            );
             let config = validator_store::Config {
                 enable_web3signer_slashing_protection: slashing_protection_config.local,
                 ..Default::default()

@@ -3,6 +3,7 @@ use errors::{BlockOperationError, BlockProcessingError, HeaderInvalid};
 use rayon::prelude::*;
 use safe_arith::{ArithError, SafeArith, SafeArithIter};
 use signature_sets::{block_proposal_signature_set, get_pubkey_from_state, randao_signature_set};
+use slot_clock::SlotDurationSchedule;
 use std::borrow::Cow;
 use tree_hash::TreeHash;
 use types::*;
@@ -501,10 +502,11 @@ pub fn compute_timestamp_at_slot<E: EthSpec>(
     block_slot: Slot,
     spec: &ChainSpec,
 ) -> Result<u64, ArithError> {
-    let slots_since_genesis = block_slot.as_u64().safe_sub(spec.genesis_slot.as_u64())?;
-    slots_since_genesis
-        .safe_mul(spec.seconds_per_slot)
-        .and_then(|since_genesis| state.genesis_time().safe_add(since_genesis))
+    let slot_duration_schedule = SlotDurationSchedule::from(spec);
+    let since_genesis = slot_duration_schedule
+        .duration_from_genesis_to_slot(spec.genesis_slot, E::slots_per_epoch(), block_slot)
+        .ok_or(ArithError::Overflow)?;
+    state.genesis_time().safe_add(since_genesis.as_secs())
 }
 
 /// Compute the next batch of withdrawals which should be included in a block.

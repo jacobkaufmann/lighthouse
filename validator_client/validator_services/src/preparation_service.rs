@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::time::{sleep, Duration};
 use tracing::{debug, error, info, warn};
 use types::{
-    Address, ChainSpec, EthSpec, ProposerPreparationData, SignedValidatorRegistrationData,
+    Address, ChainSpec, EthSpec, ProposerPreparationData, SignedValidatorRegistrationData, Slot,
     ValidatorRegistrationData,
 };
 use validator_store::{Error as ValidatorStoreError, ProposalData, ValidatorStore};
@@ -173,7 +173,6 @@ impl<T: SlotClock + 'static, E: EthSpec> PreparationService<T, E> {
 
     /// Starts the service which periodically produces proposer preparations.
     pub fn start_proposer_prepare_service(self, spec: &ChainSpec) -> Result<(), String> {
-        let slot_duration = Duration::from_secs(spec.seconds_per_slot);
         info!("Proposer preparation service started");
 
         let executor = self.context.executor.clone();
@@ -181,6 +180,11 @@ impl<T: SlotClock + 'static, E: EthSpec> PreparationService<T, E> {
 
         let interval_fut = async move {
             loop {
+                // if we cannot read the slot clock, then assume that we are at or before genesis.
+                let slot = self.slot_clock.now().unwrap_or(Slot::new(0));
+                let epoch = slot.epoch(E::slots_per_epoch());
+                let slot_duration = Duration::from_secs(spec.seconds_per_slot(epoch));
+
                 if self.should_publish_at_current_slot(&spec) {
                     // Poll the endpoint immediately to ensure fee recipients are received.
                     self.prepare_proposers_and_publish(&spec)
@@ -213,12 +217,16 @@ impl<T: SlotClock + 'static, E: EthSpec> PreparationService<T, E> {
         info!("Validator registration service started");
 
         let spec = spec.clone();
-        let slot_duration = Duration::from_secs(spec.seconds_per_slot);
 
         let executor = self.context.executor.clone();
 
         let validator_registration_fut = async move {
             loop {
+                // if we cannot read the slot clock, then assume that we are at or before genesis.
+                let slot = self.slot_clock.now().unwrap_or(Slot::new(0));
+                let epoch = slot.epoch(E::slots_per_epoch());
+                let slot_duration = Duration::from_secs(spec.seconds_per_slot(epoch));
+
                 // Poll the endpoint immediately to ensure fee recipients are received.
                 if let Err(e) = self.register_validators().await {
                     error!(error = ?e, "Error during validator registration");

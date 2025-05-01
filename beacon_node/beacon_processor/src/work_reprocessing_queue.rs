@@ -478,8 +478,8 @@ impl<S: SlotClock> ReprocessQueue<S> {
                     // This logic is slightly awkward since `SlotClock::duration_to_slot`
                     // doesn't distinguish between a slot that has already arrived and an
                     // error reading the slot clock.
-                    if let Some(now) = self.slot_clock.now() {
-                        if block_slot <= now
+                    if let Some(slot) = self.slot_clock.now() {
+                        if block_slot <= slot
                             && self
                                 .ready_work_tx
                                 .try_send(ReadyWork::Block(early_block))
@@ -978,7 +978,9 @@ impl<S: SlotClock> ReprocessQueue<S> {
     /// Returns duration until the next scheduled processing time. The schedule ensure that backfill
     /// processing is done in windows of time that aren't critical
     fn duration_until_next_backfill_batch_event(slot_clock: &S) -> Duration {
-        let slot_duration = slot_clock.slot_duration();
+        let slot = slot_clock.now().expect("can read slot clock");
+        let epoch = slot.epoch(slot_clock.slots_per_epoch());
+        let slot_duration = slot_clock.slot_duration(epoch);
         slot_clock
             .millis_from_current_slot_start()
             .and_then(|duration_from_slot_start| {
@@ -1008,15 +1010,22 @@ impl<S: SlotClock> ReprocessQueue<S> {
 mod tests {
     use super::*;
     use logging::create_test_tracing_subscriber;
-    use slot_clock::{ManualSlotClock, TestingSlotClock};
+    use slot_clock::{ManualSlotClock, SlotDurationSchedule, TestingSlotClock};
     use std::ops::Add;
     use std::sync::Arc;
     use task_executor::test_utils::TestRuntime;
 
     #[test]
     fn backfill_processing_schedule_calculation() {
+        let slots_per_epoch = 32;
         let slot_duration = Duration::from_secs(12);
-        let slot_clock = TestingSlotClock::new(Slot::new(0), Duration::from_secs(0), slot_duration);
+        let slot_duration_schedule = SlotDurationSchedule::new(slot_duration, None);
+        let slot_clock = TestingSlotClock::new(
+            Slot::new(0),
+            Duration::from_secs(0),
+            slots_per_epoch,
+            slot_duration_schedule,
+        );
         let current_slot_start = slot_clock.start_of(Slot::new(100)).unwrap();
         slot_clock.set_current_time(current_slot_start);
 
@@ -1059,8 +1068,9 @@ mod tests {
         let runtime = TestRuntime::default();
         let (work_reprocessing_tx, work_reprocessing_rx) = mpsc::channel(1);
         let (ready_work_tx, mut ready_work_rx) = mpsc::channel(1);
-        let slot_duration = 12;
-        let slot_clock = Arc::new(testing_slot_clock(slot_duration));
+        let slots_per_epoch = 32;
+        let slot_duration_schedule = SlotDurationSchedule::new(Duration::from_secs(12), None);
+        let slot_clock = Arc::new(testing_slot_clock(slots_per_epoch, slot_duration_schedule));
 
         spawn_reprocess_scheduler(
             ready_work_tx.clone(),
@@ -1122,11 +1132,15 @@ mod tests {
         tokio::task::yield_now().await;
     }
 
-    fn testing_slot_clock(slot_duration: u64) -> ManualSlotClock {
+    fn testing_slot_clock(
+        slots_per_epoch: u64,
+        slot_duration_schedule: SlotDurationSchedule,
+    ) -> ManualSlotClock {
         TestingSlotClock::new(
             Slot::new(0),
             Duration::from_secs(0),
-            Duration::from_secs(slot_duration),
+            slots_per_epoch,
+            slot_duration_schedule,
         )
     }
 }

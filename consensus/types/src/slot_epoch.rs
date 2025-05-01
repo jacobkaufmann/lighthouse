@@ -79,7 +79,7 @@ impl Epoch {
         Epoch(epoch)
     }
 
-    pub fn max_value() -> Epoch {
+    pub const fn max_value() -> Epoch {
         Epoch(u64::MAX)
     }
 

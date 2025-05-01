@@ -33,7 +33,7 @@ use proto_array::{DisallowedReOrgOffsets, ReOrgThreshold};
 use rand::RngCore;
 use rayon::prelude::*;
 use slasher::Slasher;
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use state_processing::{per_slot_processing, AllCaches};
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -981,7 +981,8 @@ where
             graffiti_calculator: GraffitiCalculator::new(
                 self.beacon_graffiti,
                 self.execution_layer,
-                slot_clock.slot_duration() * E::slots_per_epoch() as u32,
+                slot_clock.slot_duration(self.spec.genesis_slot.epoch(E::slots_per_epoch()))
+                    * E::slots_per_epoch() as u32,
             ),
             slasher: self.slasher.clone(),
             validator_monitor: RwLock::new(validator_monitor),
@@ -1098,7 +1099,10 @@ where
     /// Sets the `BeaconChain` slot clock to `TestingSlotClock`.
     ///
     /// Requires the state to be initialized.
-    pub fn testing_slot_clock(self, slot_duration: Duration) -> Result<Self, String> {
+    pub fn testing_slot_clock(
+        self,
+        slot_duration_schedule: SlotDurationSchedule,
+    ) -> Result<Self, String> {
         let genesis_time = self
             .genesis_time
             .ok_or("testing_slot_clock requires an initialized state")?;
@@ -1106,7 +1110,8 @@ where
         let slot_clock = TestingSlotClock::new(
             Slot::new(0),
             Duration::from_secs(genesis_time),
-            slot_duration,
+            E::slots_per_epoch(),
+            slot_duration_schedule,
         );
 
         Ok(self.slot_clock(slot_clock))
@@ -1242,7 +1247,8 @@ mod test {
             .expect("should build state using recent genesis")
             .dummy_eth1_backend()
             .expect("should build the dummy eth1 backend")
-            .testing_slot_clock(Duration::from_secs(1))
+            // TODO: derive `SlotDurationSchedule` from `ChainSpec` ?
+            .testing_slot_clock(SlotDurationSchedule::new(Duration::from_secs(1), None))
             .expect("should configure testing slot clock")
             .shutdown_sender(shutdown_tx)
             .rng(Box::new(StdRng::seed_from_u64(42)))

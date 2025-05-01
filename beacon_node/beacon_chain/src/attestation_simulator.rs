@@ -28,12 +28,17 @@ async fn attestation_simulator_service<T: BeaconChainTypes>(
     executor: TaskExecutor,
     chain: Arc<BeaconChain<T>>,
 ) {
-    let slot_duration = chain.slot_clock.slot_duration();
-    let additional_delay = slot_duration / 3;
-
     loop {
-        match chain.slot_clock.duration_to_next_slot() {
-            Some(duration) => {
+        match chain
+            .slot_clock
+            .duration_to_next_slot()
+            .zip(chain.slot_clock.now())
+        {
+            Some((duration, slot)) => {
+                let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
+                let slot_duration = chain.slot_clock.slot_duration(epoch);
+                let additional_delay = slot_duration / 3;
+
                 sleep(duration + additional_delay).await;
 
                 debug!("Simulating unagg. attestation production");
@@ -50,6 +55,10 @@ async fn attestation_simulator_service<T: BeaconChainTypes>(
                 );
             }
             None => {
+                let slot = chain.slot_clock.now().unwrap_or(chain.best_slot());
+                let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
+                let slot_duration = chain.slot_clock.slot_duration(epoch);
+
                 error!("Failed to read slot clock");
                 // If we can't read the slot clock, just wait another slot.
                 sleep(slot_duration).await;

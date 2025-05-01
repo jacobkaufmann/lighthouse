@@ -35,10 +35,7 @@ pub fn spawn_notifier<T: BeaconChainTypes>(
     executor: task_executor::TaskExecutor,
     beacon_chain: Arc<BeaconChain<T>>,
     network: Arc<NetworkGlobals<T::EthSpec>>,
-    seconds_per_slot: u64,
 ) -> Result<(), String> {
-    let slot_duration = Duration::from_secs(seconds_per_slot);
-
     let speedo = Mutex::new(Speedo::default());
 
     // Keep track of sync state and reset the speedo on specific sync state changes.
@@ -51,6 +48,12 @@ pub fn spawn_notifier<T: BeaconChainTypes>(
     let interval_future = async move {
         // Perform pre-genesis logging.
         loop {
+            let slot_duration = beacon_chain.slot_clock.slot_duration(
+                beacon_chain
+                    .slot()
+                    .unwrap_or(beacon_chain.best_slot())
+                    .epoch(T::EthSpec::slots_per_epoch()),
+            );
             match beacon_chain.slot_clock.duration_to_next_slot() {
                 // If the duration to the next slot is greater than the slot duration, then we are
                 // waiting for genesis.
@@ -74,6 +77,13 @@ pub fn spawn_notifier<T: BeaconChainTypes>(
         let mut last_backfill_log_slot = None;
 
         loop {
+            let slot_duration = beacon_chain.slot_clock.slot_duration(
+                beacon_chain
+                    .slot()
+                    .unwrap_or(beacon_chain.best_slot())
+                    .epoch(T::EthSpec::slots_per_epoch()),
+            );
+
             // Run the notifier half way through each slot.
             //
             // Keep remeasuring the offset rather than using an interval, so that we can correct

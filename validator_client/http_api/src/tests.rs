@@ -21,7 +21,7 @@ use eth2_keystore::KeystoreBuilder;
 use parking_lot::RwLock;
 use sensitive_url::SensitiveUrl;
 use slashing_protection::{SlashingDatabase, SLASHING_PROTECTION_FILENAME};
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use std::future::Future;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
@@ -83,10 +83,12 @@ impl ApiTester {
         let slashing_protection = SlashingDatabase::open_or_create(&slashing_db_path).unwrap();
 
         let genesis_time: u64 = 0;
+        let slot_duration_schedule = SlotDurationSchedule::new(Duration::from_secs(1), None);
         let slot_clock = TestingSlotClock::new(
             Slot::new(0),
             Duration::from_secs(genesis_time),
-            Duration::from_secs(1),
+            E::slots_per_epoch(),
+            slot_duration_schedule,
         );
 
         let test_runtime = TestRuntime::default();

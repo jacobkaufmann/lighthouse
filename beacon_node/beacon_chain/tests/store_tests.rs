@@ -19,7 +19,7 @@ use logging::create_test_tracing_subscriber;
 use maplit::hashset;
 use rand::rngs::StdRng;
 use rand::Rng;
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use state_processing::{state_advance::complete_state_advance, BlockReplayer};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -2338,7 +2338,6 @@ async fn weak_subjectivity_sync_test(slots: Vec<Slot>, checkpoint_slot: Slot) {
     let temp2 = tempdir().unwrap();
     let store = get_store(&temp2);
     let spec = test_spec::<E>();
-    let seconds_per_slot = spec.seconds_per_slot;
 
     let kzg = get_kzg(&spec);
 
@@ -2349,10 +2348,12 @@ async fn weak_subjectivity_sync_test(slots: Vec<Slot>, checkpoint_slot: Slot) {
 
     // Initialise a new beacon chain from the finalized checkpoint.
     // The slot clock must be set to a time ahead of the checkpoint state.
+    let slot_duration_schedule = SlotDurationSchedule::from(&spec);
     let slot_clock = TestingSlotClock::new(
         Slot::new(0),
         Duration::from_secs(harness.chain.genesis_time),
-        Duration::from_secs(seconds_per_slot),
+        E::slots_per_epoch(),
+        slot_duration_schedule,
     );
     slot_clock.set_slot(harness.get_current_slot().as_u64());
 
@@ -2956,7 +2957,7 @@ async fn revert_minority_fork_on_resume() {
             builder = builder
                 .resume_from_db()
                 .unwrap()
-                .testing_slot_clock(Duration::from_secs(seconds_per_slot))
+                .testing_slot_clock(SlotDurationSchedule::new(seconds_per_slot, None))
                 .unwrap();
             builder
                 .get_slot_clock()

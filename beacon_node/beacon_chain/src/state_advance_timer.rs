@@ -120,15 +120,26 @@ async fn state_advance_timer<T: BeaconChainTypes>(
 ) {
     let is_running = Lock::new();
     let slot_clock = &beacon_chain.slot_clock;
-    let slot_duration = slot_clock.slot_duration();
 
     loop {
-        let Some(duration_to_next_slot) = beacon_chain.slot_clock.duration_to_next_slot() else {
+        let Some((duration_to_next_slot, slot)) =
+            slot_clock.duration_to_next_slot().zip(slot_clock.now())
+        else {
             error!("Failed to read slot clock");
             // If we can't read the slot clock, just wait another slot.
+            //
+            // NOTE: we rely on `best_slot` since we cannot necessarily retrieve the current slot
+            // duration.
+            let best_epoch = beacon_chain
+                .best_slot()
+                .epoch(T::EthSpec::slots_per_epoch());
+            let slot_duration = slot_clock.slot_duration(best_epoch);
             sleep(slot_duration).await;
             continue;
         };
+
+        let epoch = slot.epoch(slot_clock.slots_per_epoch());
+        let slot_duration = slot_clock.slot_duration(epoch);
 
         // Run the state advance 3/4 of the way through the slot (9s on mainnet).
         let state_advance_offset = slot_duration / 4;

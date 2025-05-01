@@ -17,7 +17,7 @@ use initialized_validators::{InitializedValidators, OnDecryptFailure};
 use parking_lot::RwLock;
 use sensitive_url::SensitiveUrl;
 use slashing_protection::{SlashingDatabase, SLASHING_PROTECTION_FILENAME};
-use slot_clock::{SlotClock, TestingSlotClock};
+use slot_clock::{SlotClock, SlotDurationSchedule, TestingSlotClock};
 use std::future::Future;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
@@ -96,8 +96,13 @@ impl ApiTester {
         let slashing_db_path = validator_dir.path().join(SLASHING_PROTECTION_FILENAME);
         let slashing_protection = SlashingDatabase::open_or_create(&slashing_db_path).unwrap();
 
-        let slot_clock =
-            TestingSlotClock::new(Slot::new(0), Duration::from_secs(0), Duration::from_secs(1));
+        let slot_duration_schedule = SlotDurationSchedule::from(spec.as_ref());
+        let slot_clock = TestingSlotClock::new(
+            Slot::new(0),
+            Duration::from_secs(0),
+            E::slots_per_epoch(),
+            slot_duration_schedule,
+        );
 
         let test_runtime = TestRuntime::default();
 

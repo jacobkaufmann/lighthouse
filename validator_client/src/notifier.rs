@@ -1,9 +1,9 @@
 use crate::{DutiesService, ProductionValidatorClient};
 use metrics::set_gauge;
 use slot_clock::SlotClock;
-use tokio::time::{sleep, Duration};
+use tokio::time::sleep;
 use tracing::{debug, error, info};
-use types::EthSpec;
+use types::{EthSpec, Slot};
 
 /// Spawns a notifier service which periodically logs information about the node.
 pub fn spawn_notifier<E: EthSpec>(client: &ProductionValidatorClient<E>) -> Result<(), String> {
@@ -11,10 +11,13 @@ pub fn spawn_notifier<E: EthSpec>(client: &ProductionValidatorClient<E>) -> Resu
     let executor = context.executor.clone();
     let duties_service = client.duties_service.clone();
 
-    let slot_duration = Duration::from_secs(context.eth2_config.spec.seconds_per_slot);
-
     let interval_fut = async move {
         loop {
+            // if we cannot read the slot clock, then assume that we are at or before genesis.
+            let slot = duties_service.slot_clock.now().unwrap_or(Slot::new(0));
+            let epoch = slot.epoch(E::slots_per_epoch());
+            let slot_duration = duties_service.slot_clock.slot_duration(epoch);
+
             if let Some(duration_to_next_slot) = duties_service.slot_clock.duration_to_next_slot() {
                 sleep(duration_to_next_slot + slot_duration / 2).await;
                 notify(&duties_service).await;

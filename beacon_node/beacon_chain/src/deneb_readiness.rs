@@ -60,9 +60,10 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
     /// occur within `DENEB_READINESS_PREPARATION_SECONDS`
     pub fn is_time_to_prepare_for_deneb(&self, current_slot: Slot) -> bool {
         if let Some(deneb_epoch) = self.spec.deneb_fork_epoch {
+            let current_epoch = current_slot.epoch(T::EthSpec::slots_per_epoch());
             let deneb_slot = deneb_epoch.start_slot(T::EthSpec::slots_per_epoch());
             let deneb_readiness_preparation_slots =
-                DENEB_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot;
+                DENEB_READINESS_PREPARATION_SECONDS / self.spec.seconds_per_slot(current_epoch);
             // Return `true` if Deneb has happened or is within the preparation time.
             current_slot + deneb_readiness_preparation_slots > deneb_slot
         } else {

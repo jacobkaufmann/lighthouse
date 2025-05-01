@@ -17,7 +17,7 @@ use lighthouse_network::{discv5::enr::NodeId, NetworkConfig, Subnet, SubnetDisco
 use slot_clock::SlotClock;
 use tracing::{debug, error, info, instrument, warn};
 use types::{
-    AttestationData, EthSpec, Slot, SubnetId, SyncCommitteeSubscription, SyncSubnetId,
+    AttestationData, Epoch, EthSpec, Slot, SubnetId, SyncCommitteeSubscription, SyncSubnetId,
     ValidatorSubscription,
 };
 
@@ -120,7 +120,8 @@ impl<T: BeaconChainTypes> SubnetService<T> {
         skip_all
     )]
     pub fn new(beacon_chain: Arc<BeaconChain<T>>, node_id: NodeId, config: &NetworkConfig) -> Self {
-        let slot_duration = beacon_chain.slot_clock.slot_duration();
+        // TODO
+        let slot_duration = beacon_chain.slot_clock.slot_duration(Epoch::from(0u64));
 
         if config.subscribe_all_subnets {
             info!("Subscribing to all subnets");
@@ -147,8 +148,10 @@ impl<T: BeaconChainTypes> SubnetService<T> {
 
         // Set up the sync committee subscriptions
         let spec = &beacon_chain.spec;
-        let epoch_duration_secs =
-            beacon_chain.slot_clock.slot_duration().as_secs() * T::EthSpec::slots_per_epoch();
+
+        // TODO
+        let epoch_duration_secs = slot_duration.as_secs() * T::EthSpec::slots_per_epoch();
+
         let default_sync_committee_duration = Duration::from_secs(
             epoch_duration_secs.saturating_mul(spec.epochs_per_sync_committee_period.as_u64()),
         );
@@ -483,7 +486,11 @@ impl<T: BeaconChainTypes> SubnetService<T> {
             return Ok(());
         }
 
-        let slot_duration = self.beacon_chain.slot_clock.slot_duration();
+        // TODO
+        let slot_duration = self
+            .beacon_chain
+            .slot_clock
+            .slot_duration(Epoch::from(0u64));
 
         // The short time we schedule the subscription before it's actually required. This
         // ensures we are subscribed on time, and allows consecutive subscriptions to the same
