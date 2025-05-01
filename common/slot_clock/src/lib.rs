@@ -175,11 +175,11 @@ pub trait SlotClock: Send + Sync + Sized + Clone {
         slot_duration_schedule: SlotDurationSchedule,
     ) -> Self;
 
-    /// Returns the slot and epoch pair at this present time.
+    /// Returns the slot at this present time.
     fn now(&self) -> Option<Slot>;
 
-    /// Returns the slot and epoch pair at this present time if genesis has happened. Otherwise,
-    /// returns the genesis slot and epoch. Returns `None` if there is an error reading the clock.
+    /// Returns the slot at this present time if genesis has happened. Otherwise, returns the
+    /// genesis slot. Returns `None` if there is an error reading the clock.
     fn now_or_genesis(&self) -> Option<Slot> {
         if self.is_prior_to_genesis()? {
             Some(self.genesis_slot())
@@ -265,30 +265,20 @@ pub trait SlotClock: Send + Sync + Sized + Clone {
 
     /// Returns the `Duration` since the start of the current `Slot` at seconds precision. Useful in determining whether to apply proposer boosts.
     fn seconds_from_current_slot_start(&self) -> Option<Duration> {
-        // TODO
-        let slot = self.now()?;
-        let epoch = slot.epoch(self.slots_per_epoch());
+        let current_slot = self.now()?;
+        let current_slot_start = self.start_of(current_slot)?;
         self.now_duration()
-            .and_then(|now| now.checked_sub(self.genesis_duration()))
-            .map(|duration_into_slot| {
-                Duration::from_secs(
-                    duration_into_slot.as_secs() % self.slot_duration(epoch).as_secs(),
-                )
-            })
+            .and_then(|now| now.as_secs().checked_sub(current_slot_start.as_secs()))
+            .map(Duration::from_secs)
     }
 
     /// Returns the `Duration` since the start of the current `Slot` at milliseconds precision.
     fn millis_from_current_slot_start(&self) -> Option<Duration> {
-        // TODO
-        let slot = self.now()?;
-        let epoch = slot.epoch(self.slots_per_epoch());
+        let current_slot = self.now()?;
+        let current_slot_start = self.start_of(current_slot)?;
         self.now_duration()
-            .and_then(|now| now.checked_sub(self.genesis_duration()))
-            .map(|duration_into_slot| {
-                Duration::from_millis(
-                    (duration_into_slot.as_millis() % self.slot_duration(epoch).as_millis()) as u64,
-                )
-            })
+            .and_then(|now| now.as_millis().checked_sub(current_slot_start.as_millis()))
+            .map(|diff| Duration::from_millis(diff as u64))
     }
 
     /// Produces a *new* slot clock with the same configuration of `self`, except that clock is
