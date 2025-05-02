@@ -18,7 +18,7 @@ use tracing::{debug, error, info_span, Instrument};
 use types::blob_sidecar::{BlobIdentifier, BlobSidecar, FixedBlobSidecarList};
 use types::{
     BlobSidecarList, ChainSpec, DataColumnIdentifier, DataColumnSidecar, DataColumnSidecarList,
-    Epoch, EthSpec, Hash256, RuntimeVariableList, SignedBeaconBlock, Slot,
+    Epoch, EthSpec, Hash256, RuntimeVariableList, SignedBeaconBlock,
 };
 
 mod error;
@@ -656,13 +656,15 @@ async fn availability_cache_maintenance_service<T: BeaconChainTypes>(
     overflow_cache: Arc<DataAvailabilityCheckerInner<T>>,
 ) {
     loop {
-        match chain.slot_clock.duration_to_next_epoch() {
-            Some(duration) => {
-                // TODO
-                let slot = chain.slot_clock.now().unwrap_or(Slot::new(0));
-                let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
-                let epoch_duration =
-                    chain.slot_clock.slot_duration(epoch) * T::EthSpec::slots_per_epoch() as u32;
+        match chain
+            .slot_clock
+            .duration_to_next_epoch()
+            .zip(chain.slot_clock.now())
+        {
+            Some((duration, now)) => {
+                let current_epoch = now.epoch(T::EthSpec::slots_per_epoch());
+                let epoch_duration = chain.slot_clock.slot_duration(current_epoch)
+                    * T::EthSpec::slots_per_epoch() as u32;
 
                 // this service should run 3/4 of the way through the epoch
                 let additional_delay = (epoch_duration * 3) / 4;
@@ -674,13 +676,6 @@ async fn availability_cache_maintenance_service<T: BeaconChainTypes>(
                 };
 
                 debug!("Availability cache maintenance service firing");
-                let Some(current_epoch) = chain
-                    .slot_clock
-                    .now()
-                    .map(|slot| slot.epoch(T::EthSpec::slots_per_epoch()))
-                else {
-                    continue;
-                };
 
                 if current_epoch < deneb_fork_epoch {
                     // we are not in deneb yet
@@ -709,12 +704,12 @@ async fn availability_cache_maintenance_service<T: BeaconChainTypes>(
             None => {
                 error!("Failed to read slot clock");
 
-                // TODO
-                let slot = chain.slot_clock.now().unwrap_or(Slot::new(0));
-                let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
+                // TODO: is it okay to fallback to `best_slot` here?
+                let best_slot = chain.slot_clock.now().unwrap_or(chain.best_slot());
+                let best_epoch = best_slot.epoch(T::EthSpec::slots_per_epoch());
 
                 // If we can't read the slot clock, just wait another slot.
-                tokio::time::sleep(chain.slot_clock.slot_duration(epoch)).await;
+                tokio::time::sleep(chain.slot_clock.slot_duration(best_epoch)).await;
             }
         };
     }

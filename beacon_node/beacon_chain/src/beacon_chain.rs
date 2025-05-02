@@ -4345,7 +4345,7 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
 
         let block_slot_duration = self
             .slot_clock
-            .slot_duration(block.slot().epoch(self.slot_clock.slots_per_epoch()));
+            .slot_duration(block.slot().epoch(T::EthSpec::slots_per_epoch()));
 
         // Do not write to the cache for blocks older than 2 epochs, this helps reduce writes to
         // the cache during sync.
@@ -5071,7 +5071,7 @@ impl<T: BeaconChainTypes> BeaconChain<T> {
                 .start_of(slot)
                 .unwrap_or_else(|| Duration::from_secs(0)),
         );
-        let epoch = slot.epoch(self.slot_clock.slots_per_epoch());
+        let epoch = slot.epoch(T::EthSpec::slots_per_epoch());
         block_delays
             .observed
             .is_some_and(|delay| delay >= self.slot_clock.unagg_attestation_production_delay(epoch))

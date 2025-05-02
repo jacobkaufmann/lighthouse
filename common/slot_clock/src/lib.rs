@@ -71,9 +71,15 @@ impl SlotDurationSchedule {
 
         let mut total = Duration::ZERO;
         if let Some((e, d)) = self.breakpoint {
-            // SAFETY: assume `genesis_slot` is less than or equal to breakpoint start slot
             let start_slot = e.start_slot(slots_per_epoch).as_u64();
-            slots_before_breakpoint = start_slot - genesis_slot;
+
+            // if the given slot is beyond the start slot of the breakpoint, then adjust the number
+            // of slots before the breakpoint
+            //
+            // SAFETY: assume `genesis_slot` is less than or equal to breakpoint start slot
+            if slot >= start_slot {
+                slots_before_breakpoint = start_slot - genesis_slot;
+            }
 
             let slots_since_breakpoint = slot.saturating_sub(start_slot);
             let slots_since_breakpoint: u32 = slots_since_breakpoint
@@ -303,5 +309,131 @@ pub trait SlotClock: Send + Sync + Sized + Clone {
     /// changed in the future.
     fn single_lookup_delay(&self, epoch: Epoch) -> Duration {
         self.unagg_attestation_production_delay(epoch) / 2
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SLOTS_PER_EPOCH: u64 = 32;
+
+    #[test]
+    fn slot_duration() {
+        let initial = Duration::from_secs(2);
+
+        // no breakpoint
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: None,
+        };
+        assert_eq!(sds.slot_duration(Epoch::new(0)), initial);
+        assert_eq!(sds.slot_duration(Epoch::max_value()), initial);
+
+        // breakpoint at epoch zero
+        let breakpoint = (Epoch::new(0), Duration::from_secs(1));
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: Some(breakpoint),
+        };
+        assert_eq!(sds.slot_duration(Epoch::new(0)), breakpoint.1);
+
+        let breakpoint = (Epoch::new(4), Duration::from_secs(1));
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: Some(breakpoint),
+        };
+        assert_eq!(sds.slot_duration(Epoch::new(0)), initial);
+        assert_eq!(sds.slot_duration(breakpoint.0 - 1), initial);
+        assert_eq!(sds.slot_duration(breakpoint.0), breakpoint.1);
+        assert_eq!(sds.slot_duration(breakpoint.0 + 1), breakpoint.1);
+        assert_eq!(sds.slot_duration(Epoch::max_value()), breakpoint.1);
+    }
+
+    #[test]
+    fn duration_from_genesis_to_slot() {
+        let initial = Duration::from_secs(2);
+
+        // no breakpoint and non-zero genesis
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: None,
+        };
+        let genesis_slot = Slot::new(2);
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(0)),
+            None
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(1)),
+            None
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(2)),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(3)),
+            Some(initial)
+        );
+
+        // no breakpoint and zero genesis
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: None,
+        };
+        let genesis_slot = Slot::new(0);
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(0)),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(1)),
+            Some(initial)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(2)),
+            Some(initial * 2)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(3)),
+            Some(initial * 3)
+        );
+
+        // breakpoint and zero genesis
+        let breakpoint = (Epoch::new(1), Duration::from_secs(1));
+        let sds = SlotDurationSchedule {
+            initial,
+            breakpoint: Some(breakpoint),
+        };
+        let genesis_slot = Slot::new(0);
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(0)),
+            Some(Duration::ZERO)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(1)),
+            Some(initial)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(genesis_slot, SLOTS_PER_EPOCH, Slot::new(2)),
+            Some(initial * 2)
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(
+                genesis_slot,
+                SLOTS_PER_EPOCH,
+                Slot::new(SLOTS_PER_EPOCH)
+            ),
+            Some(initial * (SLOTS_PER_EPOCH as u32))
+        );
+        assert_eq!(
+            sds.duration_from_genesis_to_slot(
+                genesis_slot,
+                SLOTS_PER_EPOCH,
+                Slot::new(SLOTS_PER_EPOCH * 2)
+            ),
+            Some(initial * (SLOTS_PER_EPOCH as u32) + breakpoint.1 * (SLOTS_PER_EPOCH as u32))
+        );
     }
 }

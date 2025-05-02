@@ -4,7 +4,7 @@ use std::sync::Arc;
 use task_executor::TaskExecutor;
 use tokio::time::sleep;
 use tracing::{debug, error};
-use types::Slot;
+use types::EthSpec;
 
 /// Spawns a routine which ensures the EL is provided advance notice of any block producers.
 ///
@@ -31,13 +31,15 @@ async fn proposer_prep_service<T: BeaconChainTypes>(
     chain: Arc<BeaconChain<T>>,
 ) {
     loop {
-        // TODO
-        let slot = chain.slot_clock.now().unwrap_or(Slot::new(0));
-        let epoch = slot.epoch(chain.slot_clock.slots_per_epoch());
-        let slot_duration = chain.slot_clock.slot_duration(epoch);
+        match chain
+            .slot_clock
+            .duration_to_next_slot()
+            .zip(chain.slot_clock.now())
+        {
+            Some((duration, now)) => {
+                let epoch = now.epoch(T::EthSpec::slots_per_epoch());
+                let slot_duration = chain.slot_clock.slot_duration(epoch);
 
-        match chain.slot_clock.duration_to_next_slot() {
-            Some(duration) => {
                 let additional_delay =
                     slot_duration.saturating_sub(chain.config.prepare_payload_lookahead);
                 sleep(duration + additional_delay).await;
@@ -65,6 +67,9 @@ async fn proposer_prep_service<T: BeaconChainTypes>(
             None => {
                 error!("Failed to read slot clock");
                 // If we can't read the slot clock, just wait another slot.
+
+                let best_epoch = chain.best_slot().epoch(T::EthSpec::slots_per_epoch());
+                let slot_duration = chain.slot_clock.slot_duration(best_epoch);
                 sleep(slot_duration).await;
             }
         };

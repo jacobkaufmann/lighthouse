@@ -321,7 +321,8 @@ where
                         let reduced_p2p_availability_epochs = spec
                             .min_epochs_for_blob_sidecars_requests
                             .saturating_sub(BLOB_AVAILABILITY_REDUCTION_EPOCHS);
-                        // TODO: `seconds_per_slot` is not fixed
+                        // NOTE: while `seconds_per_slot` is not fixed, it is between Deneb and
+                        // Electra
                         let blob_availability_window = reduced_p2p_availability_epochs
                             * E::slots_per_epoch()
                             * spec.seconds_per_slot;

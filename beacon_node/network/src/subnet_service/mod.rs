@@ -486,11 +486,11 @@ impl<T: BeaconChainTypes> SubnetService<T> {
             return Ok(());
         }
 
-        // TODO
+        // TODO: confirm it is okay to use `slot` from `ExactSubnet` here
         let slot_duration = self
             .beacon_chain
             .slot_clock
-            .slot_duration(Epoch::from(0u64));
+            .slot_duration(slot.epoch(T::EthSpec::slots_per_epoch()));
 
         // The short time we schedule the subscription before it's actually required. This
         // ensures we are subscribed on time, and allows consecutive subscriptions to the same
