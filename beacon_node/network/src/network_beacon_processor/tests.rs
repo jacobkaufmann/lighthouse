@@ -1183,7 +1183,9 @@ async fn test_backfill_sync_processing() {
                 WORKER_FREED,
                 NOTHING_TO_DO,
             ],
-            rig.chain.slot_clock.slot_duration(),
+            rig.chain
+                .slot_clock
+                .slot_duration(rig.chain.epoch().unwrap()),
         )
         .await;
     }

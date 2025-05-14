@@ -2957,7 +2957,7 @@ async fn revert_minority_fork_on_resume() {
             builder = builder
                 .resume_from_db()
                 .unwrap()
-                .testing_slot_clock(SlotDurationSchedule::from(spec2.as_ref()))
+                .testing_slot_clock(SlotDurationSchedule::from(&spec2))
                 .unwrap();
             builder
                 .get_slot_clock()
